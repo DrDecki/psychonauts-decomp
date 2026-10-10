@@ -1,7 +1,7 @@
 # Psychonauts
 
 ![Lua scripts](https://img.shields.io/badge/Lua%20scripts-100%25-brightgreen)
-![Engine](https://img.shields.io/badge/Engine-0%25-red)
+![Engine](https://img.shields.io/badge/Engine-0%25%20(0%2F10930)-red)
 
 A work-in-progress decompilation of Psychonauts (2005, PC).
 
@@ -17,7 +17,7 @@ This repository does **not** contain any game assets or game code. You need your
 | Part | Matching | Notes |
 | --- | --- | --- |
 | Lua scripts | 106607 / 106607 functions (100 %) | 9955 bytecode chunks from `.lub`, `.lpf`, `.ppf` and `.pkg` files |
-| Engine | 0 % | Nothing decompiled yet |
+| Engine | 0 / 10930 functions (0 %) | Function list in `engine/functions.csv` |
 
 "Matching" means the decompiled function, compiled again, gives byte for byte the same bytecode as the original. The tools check this for every single function, so the number above is not an estimate.
 
@@ -25,7 +25,13 @@ The engine is by far the bigger part of the game, so the project as a whole is s
 
 ## Supported version
 
-Only the current Steam version has been tested (the one with the 2011 update that added Mac support and achievements). The GOG release probably works the same, but I haven't checked.
+Only the current Steam version has been tested. Its executable:
+
+```
+Psychonauts.exe  sha1 21e9b89c80347c8360a8ce4b17ce45e7cd1d4a07
+```
+
+The GOG release probably has the same scripts, but I haven't checked.
 
 ## Dependencies
 
@@ -109,6 +115,13 @@ What we know so far, from `tools/peinfo.py`:
 - Besides the usual sections there are two custom ones, `.dflua` and `.dfluatx`, probably Double Fine's Lua bindings.
 - No PDB is shipped, only its build path `c:\dfp-p5ya\Psychonauts\Resource\Psychonauts.pdb` is left in the executable.
 
+`tools/funclist.py` finds the functions by disassembling from the entry point, following calls, jumps and switch tables, and then looking at pointers in the data sections and the gaps in between. MSVC aligned every function in this build to 16 bytes, which makes it easy to tell real starts from data that just looks like an address. It ends up with 10930 functions covering 95.5 % of the code. Most of the rest is exception handler stubs the compiler puts at the end of `.text`, they get matched together with their parent function and are not counted on their own.
+
+```sh
+pip install capstone pefile
+python3 tools/funclist.py /path/to/Psychonauts.exe engine/functions.csv
+```
+
 The plan is the usual setup for MSVC games: a Ghidra project to map out the functions, then decompiled C++ compiled with the original compiler and compared function by function, similar to how [isledecomp](https://github.com/isledecomp/isle) does it with `reccmp`.
 
 ## Roadmap
@@ -118,7 +131,8 @@ The plan is the usual setup for MSVC games: a Ghidra project to map out the func
 - [x] Repack and install edited scripts
 - [x] Readable names for parameters and locals where the role is clear
 - [ ] Find out which copy of a script the game loads where
-- [ ] Set up the engine: Ghidra project, function list, symbols
+- [x] Function list of the executable
+- [ ] Set up the engine: Ghidra project, symbols, matching compiler
 - [ ] Start decompiling the engine
 - [ ] Asset formats (textures, models, sound)
 
@@ -126,7 +140,8 @@ The plan is the usual setup for MSVC games: a Ghidra project to map out the func
 
 | Path | Contents |
 | --- | --- |
-| `tools/` | Decompiler, repacker, installer, diff tool and `peinfo.py` for the executable (Python) |
+| `tools/` | Script decompiler, repacker, installer, diff tool, `peinfo.py` and `funclist.py` for the executable (Python) |
+| `engine/` | Function list of `Psychonauts.exe` (addresses and sizes only) |
 | `psyluac/` | Lua 4.0 compiler patched to produce Psychonauts bytecode |
 
 ## Related
