@@ -7,7 +7,7 @@ A work-in-progress decompilation of Psychonauts (2005, PC).
 
 The game is split into two very different parts:
 
-- **The engine** (`Psychonauts.exe`): C++, 32 bit x86, built with MSVC. Rendering, physics, audio, loading, the Lua runtime. **Not started yet.**
+- **The engine** (`Psychonauts.exe`): C++, 32 bit x86. Rendering, physics, audio, loading, the Lua runtime. **Not started yet.**
 - **The scripts**: Lua 4.0 with some Double Fine changes. Raz, enemies, bosses, cutscenes, every level script. **Done:** every function decompiles to source that recompiles to the exact same bytes.
 
 This repository does **not** contain any game assets or game code. You need your own copy of the game.
@@ -96,14 +96,27 @@ Stock Lua tools can't read Psychonauts bytecode. What's different from Lua 4.0:
 
 The decompiler basically runs the Lua 4.0 parser backwards. Some things that took a while: jump threading (jumps onto a `JMP` get redirected to its target), `POP`s merged into a preceding `SETTABLE`, `if nil then` compiling to a bare `JMP`, and `and`/`or` having the same priority in 4.0.
 
-Since the level scripts have no debug info, parameters are called `p1`, `p2`... and locals `l1`, `l2`...
+Since the level scripts have no debug info, the original names of parameters and locals are gone for good, and so are the comments. Everything else (globals, table fields, function names, strings, control flow) is original. The decompiler picks names that follow Double Fine's own conventions where it can tell: `self` for methods, `Ob` for the object in class constructors, `k`/`v` and `i` for loops. Everything else gets `a1`, `a2`... for parameters and `l1`, `l2`... for locals, counted per function. Every file is recompiled with these names and falls back to plain generated names if anything would change, so the output always matches.
+
+The blank lines between functions are on purpose. Each function's starting line is stored in the bytecode, so the functions have to stay on their original lines.
+
+## About the engine
+
+What we know so far, from `tools/peinfo.py`:
+
+- The Steam executable was rebuilt in January 2016 and linked with Visual Studio 2008 (linker 9.00).
+- The game code itself is 218 C++ and 45 C object files, all compiled with MSVC 2008 RTM (build 15.00.21022). That compiler shipped with the free Visual C++ 2008 Express, so a matching decompilation is possible in principle.
+- Besides the usual sections there are two custom ones, `.dflua` and `.dfluatx`, probably Double Fine's Lua bindings.
+- No PDB is shipped, only its build path `c:\dfp-p5ya\Psychonauts\Resource\Psychonauts.pdb` is left in the executable.
+
+The plan is the usual setup for MSVC games: a Ghidra project to map out the functions, then decompiled C++ compiled with the original compiler and compared function by function, similar to how [isledecomp](https://github.com/isledecomp/isle) does it with `reccmp`.
 
 ## Roadmap
 
 - [x] Read all script containers of the Steam version
 - [x] Match every Lua function
 - [x] Repack and install edited scripts
-- [ ] Better names for parameters and locals
+- [x] Readable names for parameters and locals where the role is clear
 - [ ] Find out which copy of a script the game loads where
 - [ ] Set up the engine: Ghidra project, function list, symbols
 - [ ] Start decompiling the engine
@@ -113,7 +126,7 @@ Since the level scripts have no debug info, parameters are called `p1`, `p2`... 
 
 | Path | Contents |
 | --- | --- |
-| `tools/` | Decompiler, repacker, installer and diff tool (Python) |
+| `tools/` | Decompiler, repacker, installer, diff tool and `peinfo.py` for the executable (Python) |
 | `psyluac/` | Lua 4.0 compiler patched to produce Psychonauts bytecode |
 
 ## Related

@@ -479,7 +479,7 @@ class Printer:
         name = self.funcname(target)
         self.targets_pop(func)
         self.goto_def(func)
-        params = list(func.params)
+        params = [p.name for p in func.params]
         if func.vararg:
             params.append("...")
         self.w("function " + name)
@@ -532,7 +532,8 @@ class Printer:
         elif isinstance(e, LocalRef):
             self.w(e.var.name)
         elif isinstance(e, Upval):
-            self.w("%" + e.name)
+            ref = e.name
+            self.w("%" + (ref.name if isinstance(ref, LocalVar) else ref))
         elif isinstance(e, Index):
             self.prefix(e.t)
             if isinstance(e.k, Str) and is_name(e.k.s):
@@ -561,7 +562,7 @@ class Printer:
             func = e.func
             self.targets_pop(func)
             self.goto_def(func)
-            params = list(func.params)
+            params = [p.name for p in func.params]
             if func.vararg:
                 params.append("...")
             self.w("function")

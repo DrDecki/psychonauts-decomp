@@ -318,7 +318,7 @@ class FuncDecompiler:
             names = []
             for u in ups:
                 if isinstance(u, LocalRef):
-                    names.append(u.var.name)
+                    names.append(u.var)
                 elif isinstance(u, Global):
                     names.append(u.name)
                 else:
@@ -1174,7 +1174,7 @@ class FuncDecompiler:
             self.stack.append(LocalRef(v))
         self.nloc = len(self.stack)
         body, pc, _ = self.block(0, len(self.code), None)
-        func = Func(f, [p.name for p in params], bool(f.is_vararg), body, self.upnames)
+        func = Func(f, params, bool(f.is_vararg), body, self.upnames)
         return func
 
 

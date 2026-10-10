@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from luaformat import load_chunk, load_chunk_at, FormatError  # noqa: E402
 from luaast import Printer, Closure  # noqa: E402
 import dec  # noqa: E402
+import naming  # noqa: E402
 
 
 def closure_lines(func):
@@ -223,6 +224,31 @@ def file_hash(path):
     return hashlib.sha1(open(path, "rb").read()).hexdigest()
 
 
+def write_source(out_path, text):
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="latin-1", newline="\n") as fo:
+        fo.write(text)
+
+
+def verify(orig, out_path, luac, debug):
+    fd, tmp = tempfile.mkstemp(suffix=".lub")
+    os.close(fd)
+    args = [luac, "-n", orig.source or "=(none)", "-o", tmp, out_path]
+    if not debug:
+        args.insert(1, "-s")
+    r = subprocess.run(args, capture_output=True, text=True)
+    try:
+        if r.returncode != 0:
+            return None, "recompile failed: %s" % " ".join((r.stderr or "").split())[:200]
+        new = load_chunk(open(tmp, "rb").read())
+    finally:
+        os.unlink(tmp)
+    result = {"functions": 0, "matched": 0}
+    problems = []
+    compare(orig, new, result, debug, problems)
+    return result, problems
+
+
 def handle_chunk(label, data, out_path, luac, stats, report, info=None):
     try:
         orig = load_chunk(data)
@@ -237,6 +263,7 @@ def handle_chunk(label, data, out_path, luac, stats, report, info=None):
     stats["chunks"] += 1
     try:
         func = dec.decompile_chunk(orig)
+        saved = naming.apply(func) if luac else None
         text = to_source(func, debug)
     except Exception as ex:
         stats["functions"] += count_funcs(orig)
@@ -246,38 +273,32 @@ def handle_chunk(label, data, out_path, luac, stats, report, info=None):
         if os.environ.get("PSYDEC_TRACE"):
             traceback.print_exc()
         return
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w", encoding="latin-1", newline="\n") as fo:
-        fo.write(text)
-    if info is not None:
-        info["sha1"] = file_hash(out_path)
+    write_source(out_path, text)
     if luac is None:
         stats["functions"] += count_funcs(orig)
         report.append("%s: written, not verified" % label)
-        return
-    fd, tmp = tempfile.mkstemp(suffix=".lub")
-    os.close(fd)
-    args = [luac, "-n", orig.source or "=(none)", "-o", tmp, out_path]
-    if not debug:
-        args.insert(1, "-s")
-    r = subprocess.run(args, capture_output=True, text=True)
-    try:
-        if r.returncode != 0:
+    else:
+        result, problems = verify(orig, out_path, luac, debug)
+        if result is None or problems:
+            naming.restore(saved)
+            write_source(out_path, to_source(func, debug))
+            result, problems = verify(orig, out_path, luac, debug)
+            if result is not None:
+                stats["plain_names"] += 1
+        if result is None:
             stats["functions"] += count_funcs(orig)
             stats["failed"] += 1
-            report.append("%s: recompile failed: %s" % (label, " ".join((r.stderr or "").split())[:200]))
+            report.append("%s: %s" % (label, problems))
             keep_failed(label, data)
-            return
-        new = load_chunk(open(tmp, "rb").read())
-    finally:
-        os.unlink(tmp)
-    problems = []
-    before_m, before_f = stats["matched"], stats["functions"]
-    compare(orig, new, stats, debug, problems)
-    if problems:
-        keep_failed(label, data)
-    report.append("%s: %d/%d%s" % (label, stats["matched"] - before_m, stats["functions"] - before_f,
-                                   ("  " + "; ".join(problems[:5])) if problems else ""))
+        else:
+            stats["functions"] += result["functions"]
+            stats["matched"] += result["matched"]
+            if problems:
+                keep_failed(label, data)
+            report.append("%s: %d/%d%s" % (label, result["matched"], result["functions"],
+                                           ("  " + "; ".join(problems[:5])) if problems else ""))
+    if info is not None:
+        info["sha1"] = file_hash(out_path)
 
 
 def handle_lpf_entries(rel, data, counts, entries, base, luac, stats, report):
@@ -369,7 +390,7 @@ def main():
     luadir = os.path.join(outdir, "lua")
     LUADIR = luadir
     os.makedirs(luadir, exist_ok=True)
-    stats = {"chunks": 0, "functions": 0, "matched": 0, "failed": 0, "text": 0}
+    stats = {"chunks": 0, "functions": 0, "matched": 0, "failed": 0, "text": 0, "plain_names": 0}
     report = []
     manifest = {}
     for root, dirs, files in os.walk(game):
@@ -395,6 +416,8 @@ def main():
     if luac:
         pct = 100.0 * stats["matched"] / total if total else 0.0
         print("functions %d, byte identical %d" % (total, stats["matched"]))
+        if stats["plain_names"]:
+            print("chunks that kept generic names: %d" % stats["plain_names"])
         print("MATCHING: %.1f %%" % pct)
     print("sources in %s, details in %s" % (luadir, os.path.join(outdir, "report.txt")))
 
