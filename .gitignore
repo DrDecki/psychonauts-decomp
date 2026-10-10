@@ -1,0 +1,9 @@
+decomp/
+mod/
+backup/
+psyluac/psyluac
+*.lub
+*.lpf
+*.ppf
+*.pkg
+__pycache__/
