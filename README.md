@@ -1,4 +1,4 @@
-# psychonauts-lua-decomp
+# psychonauts-decomp
 
 Tools to turn the Lua scripts of Psychonauts (2005, PC) back into readable source code. Not "roughly what it did" source, but source that compiles back to the exact same bytes as the original.
 
