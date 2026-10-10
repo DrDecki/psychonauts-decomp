@@ -124,18 +124,6 @@ python3 tools/funclist.py /path/to/Psychonauts.exe engine/functions.csv
 
 The plan is the usual setup for MSVC games: a Ghidra project to map out the functions, then decompiled C++ compiled with the original compiler and compared function by function, similar to how [isledecomp](https://github.com/isledecomp/isle) does it with `reccmp`.
 
-## Roadmap
-
-- [x] Read all script containers of the Steam version
-- [x] Match every Lua function
-- [x] Repack and install edited scripts
-- [x] Readable names for parameters and locals where the role is clear
-- [ ] Find out which copy of a script the game loads where
-- [x] Function list of the executable
-- [ ] Set up the engine: Ghidra project, symbols, matching compiler
-- [ ] Start decompiling the engine
-- [ ] Asset formats (textures, models, sound)
-
 ## Repository layout
 
 | Path | Contents |
