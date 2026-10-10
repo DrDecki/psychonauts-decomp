@@ -1,114 +1,120 @@
-# psychonauts-decomp
+# Psychonauts
 
-Tools to turn the Lua scripts of Psychonauts (2005, PC) back into readable source code. Not "roughly what it did" source, but source that compiles back to the exact same bytes as the original.
+![Lua scripts](https://img.shields.io/badge/Lua%20scripts-100%25-brightgreen)
+![Engine](https://img.shields.io/badge/Engine-0%25-red)
 
-Psychonauts runs a huge part of its gameplay in Lua. Raz, the enemies, the bosses, the cutscenes, every level script. The engine itself is C++, everything on top of it is Lua 4.0 with a few Double Fine tweaks.
+A work-in-progress decompilation of Psychonauts (2005, PC).
 
-With the current Steam version all of it goes through:
+The game is split into two very different parts:
 
-```
-bytecode chunks 9955, plain text sources 2, failed 0
-functions 106607, byte identical 106607
-MATCHING: 100.0 %
-```
+- **The engine** (`Psychonauts.exe`): C++, 32 bit x86, built with MSVC. Rendering, physics, audio, loading, the Lua runtime. **Not started yet.**
+- **The scripts**: Lua 4.0 with some Double Fine changes. Raz, enemies, bosses, cutscenes, every level script. **Done:** every function decompiles to source that recompiles to the exact same bytes.
 
-Every single function gets decompiled, recompiled and compared byte for byte against the original. If something does not match, the tool tells you.
+This repository does **not** contain any game assets or game code. You need your own copy of the game.
 
-**This repo does not contain any game files or decompiled code.** You need your own copy of Psychonauts. The tools read it and write the source to your disk.
+## Progress
 
-## What's in here
+| Part | Matching | Notes |
+| --- | --- | --- |
+| Lua scripts | 106607 / 106607 functions (100 %) | 9955 bytecode chunks from `.lub`, `.lpf`, `.ppf` and `.pkg` files |
+| Engine | 0 % | Nothing decompiled yet |
 
-| Path | What it does |
-| --- | --- |
-| `tools/psydec.py` | The decompiler. Reads `.lub`, `.lpf`, `.ppf` and `.pkg` files and writes `.lua` source |
-| `psyluac/` | Lua 4.0 compiler patched to produce Psychonauts bytecode. Used to verify the output and to build mods |
-| `tools/psypack.py` | Puts edited scripts back into the game files |
-| `tools/psyinstall.py` | Installs those files into the game folder and keeps a backup of the originals |
-| `tools/compare.py` | Shows original and recompiled bytecode of one function side by side, handy if you work on the decompiler |
+"Matching" means the decompiled function, compiled again, gives byte for byte the same bytecode as the original. The tools check this for every single function, so the number above is not an estimate.
 
-## Usage
+The engine is by far the bigger part of the game, so the project as a whole is still near the start.
 
-You need Linux or WSL, Python 3 and gcc.
+## Supported version
 
-Build the compiler:
+Only the current Steam version has been tested (the one with the 2011 update that added Mac support and achievements). The GOG release probably works the same, but I haven't checked.
+
+## Dependencies
+
+Linux or WSL with:
+
+- Python 3
+- gcc
+
+## Decompiling the scripts
+
+Build the patched Lua compiler:
 
 ```sh
 sh psyluac/build.sh
 ```
 
-Decompile everything (change the path to wherever your game is):
+Then point the decompiler at your game folder:
 
 ```sh
-python3 tools/psydec.py "/mnt/e/SteamLibrary/steamapps/common/Psychonauts" decomp psyluac/psyluac
+python3 tools/psydec.py "/path/to/Psychonauts" decomp psyluac/psyluac
 ```
 
-This takes a few minutes. Afterwards you get:
+After a few minutes you get:
 
-- `decomp/lua/` with all the scripts, the folders follow the game files, e.g. `decomp/lua/WorkResource/PCLevelPackFiles/ASCO/...` for the level `ASCO.ppf`
+- `decomp/lua/` with all scripts, laid out like the game files (`decomp/lua/WorkResource/PCLevelPackFiles/ASCO/...` for `ASCO.ppf` and so on)
 - `decomp/report.txt` with the result for every chunk
-- `decomp/manifest.json`, which `psypack.py` needs later
-- `decomp/failed/` only shows up if something did not match
+- `decomp/manifest.json`, needed for repacking
+- `decomp/failed/` with the original bytecode of anything that didn't match (should not exist)
 
-If you leave out the `psyluac/psyluac` argument it only decompiles and skips the check.
+Without the `psyluac/psyluac` argument the output is not checked.
 
-## Changing things (experimental)
+## Diffing
 
-Edit a `.lua` file in `decomp/lua`, then:
-
-```sh
-G="/path/to/Psychonauts"
-python3 tools/psypack.py "$G" decomp psyluac/psyluac mod backup
-python3 tools/psyinstall.py install "$G" mod backup
-```
-
-`psypack.py` only recompiles the files you touched, everything else stays original. Changed game files end up in `mod/`, and `psyinstall.py` copies them over and saves the originals to `backup/` first. To go back:
+To look at a single function, original and recompiled side by side:
 
 ```sh
-python3 tools/psyinstall.py restore "$G" backup
+PSYLUAC=psyluac/psyluac python3 tools/compare.py original.lub decompiled.lua main.0.5
 ```
 
-What I tested so far:
+`main.0.5` is the path through the nested functions: the sixth function inside the first function inside the main chunk.
 
-- Changing text in the localization tables works in game. My first test put my own line on the title screen.
-- The game loads a rebuilt `common.ppf` fine, even when the script pack inside got shorter.
-- Changing Raz's gravity in `Dart.lua` did nothing visible in the main menu. `Dart` exists three times (`Scripts/packfile/common.lpf`, `PCLevelPackFiles/common.ppf` and a loose copy in `Psychonautsdata2.pkg`), so it is not clear yet which one the game really uses where.
+## Repacking (experimental)
 
-The `.lua` files are Latin-1 like the originals. If you edit them on Windows, save as "ANSI" or "Western (Windows 1252)", otherwise umlauts and accents break.
+Edited scripts can go back into the game files:
 
-## How Psychonauts' Lua differs from stock Lua 4.0
+```sh
+python3 tools/psypack.py "/path/to/Psychonauts" decomp psyluac/psyluac mod backup
+python3 tools/psyinstall.py install "/path/to/Psychonauts" mod backup
+python3 tools/psyinstall.py restore "/path/to/Psychonauts" backup
+```
 
-This was the fun part. Stock tools can't read the bytecode at all, here is why:
+`psypack.py` only recompiles the files you changed. `psyinstall.py` saves the originals to `backup/` before overwriting anything.
 
-- **16 bit instructions** instead of 32 bit: opcode 6 bits, B 5 bits, A 5 bits, U 10 bits. The Lua 4.0 source even mentions this as an option "for a very small machine".
-- **float** instead of double for numbers. The header test number is `3.14159`.
-- **Three extra opcodes**, because 5 bits for A are not enough: `EXTARG` (49) carries a big A for the next instruction, `CALLX` (51) and `CLOSUREX` (52) take it. 50 never shows up.
-- `EXTARG` kicks in at closure index 30 but only at call base 32. The 30 comes from the growth check in `luaM_growaux` (`nelems >= limit - inc`), which would have errored there.
-- `MULT_RET` is 31, the stack can go up to at least 58, lists flush every 31 items and records every 15.
-- String constants are never duplicated. Stock 4.0 sometimes adds a second copy when a nested function overwrote the lookup hint. Number constants are searched in full instead of the last 20.
-- Scripts in the level packs have no debug info, so there are no local names or line numbers. The localization tables still have both.
+Tested so far: text changes in the localization tables show up in game, and a rebuilt `common.ppf` with a shorter script pack loads fine. A change to Raz's gravity in `Dart.lua` showed no effect in the main menu. There are three copies of `Dart` in the game files and it's not clear yet which one is used when.
 
-## Notes on the decompiler
+The `.lua` files are Latin-1 like the originals, so save them as "ANSI" or "Western (Windows 1252)" if you edit on Windows.
 
-Lua 4.0 is a simple one pass compiler without real optimization passes, so the decompiler basically runs the parser backwards: a symbolic stack for expressions, jump targets for `if`, `while`, `repeat`, `for` and `and`/`or`.
+## About the script format
 
-Some things that took a while to get right:
+Stock Lua tools can't read Psychonauts bytecode. What's different from Lua 4.0:
 
-- Jumps that land on a `JMP` get redirected to its target ("jump threading"). This also hits `FORPREP` and `else` jumps at the end of loops, so targets have to be compared by where they end up, not where they point.
-- A `POP` at the end of a block, or the one a `break` emits, gets merged into a `SETTABLE` right before it.
-- `if nil then ... end` and `if nil and ...` compile to a bare `JMP`. Double Fine used that to switch off debug code.
-- A `return` in the middle of a block was written as `do return end`.
-- `and` and `or` have the same priority in 4.0 and are left associative. `a or b and c` means `(a or b) and c`.
+- 16 bit instructions instead of 32 bit (opcode 6 bits, B 5, A 5, U 10)
+- `float` numbers instead of `double`, header test number `3.14159`
+- Three extra opcodes for arguments that don't fit into 5 bits: `EXTARG` (49) carries a big A for the next instruction, `CALLX` (51) and `CLOSUREX` (52) use it. Closures switch to it at index 30, calls at base 32
+- `MULT_RET` is 31, lists flush every 31 items, records every 15
+- String constants are never duplicated and number constants are searched in full, both differ from stock 4.0
+- Level scripts have no debug info, only the localization tables keep local names and line numbers
 
-Since the level scripts have no debug info, parameters are called `p1`, `p2`... and locals `l1`, `l2`... The names are unique per file, otherwise upvalues (`%name`) would resolve to the wrong variable. Functions sit on the same line numbers as in the original files, which is why you'll see some blank lines.
+The decompiler basically runs the Lua 4.0 parser backwards. Some things that took a while: jump threading (jumps onto a `JMP` get redirected to its target), `POP`s merged into a preceding `SETTABLE`, `if nil then` compiling to a bare `JMP`, and `and`/`or` having the same priority in 4.0.
 
-## Status
+Since the level scripts have no debug info, parameters are called `p1`, `p2`... and locals `l1`, `l2`...
+
+## Roadmap
 
 - [x] Read all script containers of the Steam version
-- [x] Decompile every function byte identical
-- [x] Rebuild packs and install with backup
-- [ ] Better names for parameters and locals (e.g. `self` for methods)
-- [ ] Figure out which copy of a script the game loads in which situation
-- [ ] Everything that isn't Lua (textures, models, sound) and the engine itself
+- [x] Match every Lua function
+- [x] Repack and install edited scripts
+- [ ] Better names for parameters and locals
+- [ ] Find out which copy of a script the game loads where
+- [ ] Set up the engine: Ghidra project, function list, symbols
+- [ ] Start decompiling the engine
+- [ ] Asset formats (textures, models, sound)
+
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `tools/` | Decompiler, repacker, installer and diff tool (Python) |
+| `psyluac/` | Lua 4.0 compiler patched to produce Psychonauts bytecode |
 
 ## Related
 
