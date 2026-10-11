@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compiles everything in src/ with Visual C++ 2008, the compiler Psychonauts.exe
+# Compiles everything in src/ (C and C++) with Visual C++ 2008, the compiler Psychonauts.exe
 # was built with. The objects end up in build/<folder>/.
 #
 # usage: sh tools/build.sh <VC folder>
@@ -27,5 +27,5 @@ for dir in "$ROOT"/src/*/; do
     rm -rf "$ROOT/build/$name"
     mkdir -p "$ROOT/build/$name"
     cd "$ROOT/build/$name"
-    $RUN "$VC/bin/cl.exe" $CFLAGS /I"$INCLUDE" ../../src/"$name"/*.c | grep -vE '^(Compiling|Generating Code)|\.c\s*$|C4005|definition of .errno.' || true
+    $RUN "$VC/bin/cl.exe" $CFLAGS /I"$INCLUDE" $(ls ../../src/"$name"/*.c ../../src/"$name"/*.cpp 2>/dev/null) | grep -vE '^(Compiling|Generating Code)|\.(c|cpp)\s*$|C4005|definition of .errno.' || true
 done

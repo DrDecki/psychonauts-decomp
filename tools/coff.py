@@ -110,6 +110,18 @@ class ObjFile:
             return "%s:%s#%d" % (self.path.split("/")[-1], sym.name, sym.index)
         return sym.name
 
+    def strings(self):
+        """static string literals ($SG symbols): qualified name -> bytes without the NUL"""
+        out = {}
+        for sym in self.symbols:
+            if sym.section <= 0 or not sym.name.startswith("$SG"):
+                continue
+            data = self.section(sym.section).data
+            end = data.find(b"\0", sym.value)
+            if end > sym.value:
+                out[self.qualified(sym)] = data[sym.value:end]
+        return out
+
     def section(self, index):
         return self.sections[index - 1]
 

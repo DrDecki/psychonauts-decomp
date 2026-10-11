@@ -32,6 +32,7 @@ class Exe:
         text = [s for s in pe.sections if s.Name.rstrip(b"\0") == b".text"][0]
         self.text_va = self.base + text.VirtualAddress
         self.text = text.get_data()[:text.Misc_VirtualSize]
+        self.image = pe.get_memory_mapped_image()
         pos = self.text.find(b"\xff\x25")
         while pos >= 0:
             iat = struct.unpack_from("<I", self.text, pos + 2)[0]
@@ -67,11 +68,39 @@ def longest_plain(code, mask):
     return best
 
 
+_find_cache = {}
+
+
 def find(exe, fn):
     code = fn.code
     mask = masked(fn)
+    key = (bytes(code), bytes(mask))
+    if key not in _find_cache:
+        _find_cache[key] = _find(exe, code, mask)
+    return _find_cache[key]
+
+
+def find_strings(exe, s, limit=64):
+    """addresses of a NUL terminated, 4 byte aligned string"""
+    hits = []
+    needle = s + b"\0"
+    pos = exe.image.find(needle)
+    while pos >= 0 and len(hits) < limit:
+        if pos % 4 == 0 and (pos == 0 or exe.image[pos - 1] == 0):
+            hits.append(exe.base + pos)
+        pos = exe.image.find(needle, pos + 1)
+    return hits
+
+
+def find_string(exe, s):
+    """address of a NUL terminated string, if it is in the image exactly once"""
+    hits = find_strings(exe, s, 2)
+    return hits[0] if len(hits) == 1 else None
+
+
+def _find(exe, code, mask):
     a, b = longest_plain(code, mask)
-    if b - a < 6:
+    if b - a < 3 or (b - a < 6 and len(code) < 16):
         return []
     needle = code[a:b]
     hits = []
@@ -106,29 +135,81 @@ def targets(exe, fn, va):
 def run(exe, objs, known_in=None):
     known = dict(exe.imports)
     known.update(known_in or {})
+    for obj in objs:
+        strings = obj.strings()
+        found = {}
+        for name, s in strings.items():
+            hits = find_strings(exe, s)
+            if len(hits) == 1 and len(s) >= 4:
+                found[name] = hits[0]
+            elif hits:
+                found[name] = hits
+        anchors = sorted(v for v in found.values() if isinstance(v, int))
+        for name, v in found.items():
+            if isinstance(v, int):
+                known.setdefault(name, v)
+            elif anchors:
+                # strings of one object sit together; take the only hit close to the others
+                near = [va for va in v if any(abs(va - a) < 0x400 for a in anchors)]
+                if len(near) == 1:
+                    known.setdefault(name, near[0])
     results = {}
     candidates = {}
+    hit_targets = {}
     for obj in objs:
         for fn in obj.functions:
             hits = find(exe, fn)
             candidates[(obj.path, fn.name)] = (fn, hits)
+            hit_targets[(obj.path, fn.name)] = [(va, targets(exe, fn, va)) for va in hits]
+    claimed = set()
+    by_section = {}
+    for key, (fn, hits) in candidates.items():
+        by_section.setdefault((key[0], fn.section.index), []).append((fn.offset, key))
+    for v in by_section.values():
+        v.sort()
+
+    def expected(key):
+        """address from the closest matched function before it in the same section"""
+        fn = candidates[key][0]
+        best = None
+        for off, other in by_section[(key[0], fn.section.index)]:
+            if off >= fn.offset:
+                break
+            if other in results:
+                best = results[other] + (fn.offset - off)
+        return best
+
     changed = True
-    while changed:
+    use_order = False
+    while changed or not use_order:
+        if not changed:
+            use_order = True
         changed = False
         for key, (fn, hits) in candidates.items():
             if key in results:
                 continue
             ok = []
-            for va in hits:
+            for va, t in hit_targets[key]:
+                if va in claimed:
+                    continue
                 if fn.key in known and known[fn.key] != va:
                     continue
-                t = targets(exe, fn, va)
                 if any(known.get(n, v) != v for n, v in t.items()):
                     continue
                 ok.append((va, t))
+                if len(ok) > 1:
+                    break
+            if len(ok) > 1 and use_order:
+                exp = expected(key)
+                ok = [x for x in ok if x[0] == exp][:1]
+                if not ok:
+                    # ok was cut at two entries, look through all hits again
+                    ok = [(va, t) for va, t in hit_targets[key] if va == exp and va not in claimed
+                          and all(known.get(n, v) == v for n, v in t.items())]
             if len(ok) == 1:
                 va, t = ok[0]
                 results[key] = va
+                claimed.add(va)
                 known.setdefault(fn.key, va)
                 for n, v in t.items():
                     known.setdefault(n, v)
@@ -173,6 +254,18 @@ def starts_set(starts):
     return _starts_cache[key]
 
 
+def demangle(name):
+    """short readable form of a symbol: _foo -> foo, ?bar@Cls@@... -> Cls::bar"""
+    if name.startswith("??__E"):
+        return "dynamic initializer for " + name[5:name.index("@@")]
+    if name.startswith("??0") or name.startswith("??1"):
+        cls = name[3:name.index("@@")].split("@")[0]
+        return "%s::%s%s" % (cls, "~" if name[2] == "1" else "", cls)
+    if name.startswith("?") and "@@" in name:
+        return "::".join(reversed(name[1:name.index("@@")].split("@")))
+    return name[1:] if name.startswith("_") else name
+
+
 def main():
     import argparse
     import csv
@@ -186,6 +279,7 @@ def main():
     exe = Exe(args.exe)
     objs = [ObjFile(p) for p in args.objs]
     results, candidates, known = run(exe, objs)
+    cpp_objs = {o.path for o in objs if any(f.name.startswith("?") for f in o.functions)}
     per_obj = {}
     for (path, name), (fn, hits) in candidates.items():
         n = per_obj.setdefault(path, [0, 0])
@@ -209,17 +303,21 @@ def main():
             r = by_va.get(va)
             if r is None:
                 continue
-            r["name"] = name[1:] if name.startswith("_") else name
+            r["name"] = demangle(name)
             r["status"] = "matching"
             parts = path.replace("\\", "/").split("/")
-            r["object"] = "/".join(parts[-2:])[:-4] + ".c"
+            r["object"] = "/".join(parts[-2:])[:-4] + (".cpp" if path in cpp_objs else ".c")
         with open(args.functions, "w", newline="") as f:
             w = csv.DictWriter(f, ["address", "size", "origin", "name", "status", "object"], lineterminator="\n")
             w.writeheader()
             w.writerows(rows)
     total = len(rows)
-    done = sum(1 for r in rows if r.get("status") == "matching") if args.write else len(results)
+    matched = set(results.values())
+    done = sum(1 for r in rows if int(r["address"], 16) in matched)
+    size = sum(int(r["size"]) for r in rows)
+    done_size = sum(int(r["size"]) for r in rows if int(r["address"], 16) in matched)
     print("matching: %d of %d object functions" % (len(results), len(candidates)))
+    print("code:     %d of %d bytes (%.2f %%)" % (done_size, size, 100.0 * done_size / size))
     print("engine:   %d of %d functions (%.2f %%)" % (done, total, 100.0 * done / total))
 
 
