@@ -1,5 +1,6 @@
 /*
 ** $Id: lparser.c,v 1.116 2000/10/27 11:39:52 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** LL(1) Parser and code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -294,10 +295,19 @@ static void pushclosure (LexState *ls, FuncState *func) {
   int i;
   for (i=0; i<func->nupvalues; i++)
     luaK_tostack(ls, &func->upvalues[i], 1);
-  luaM_growvector(ls->L, f->kproto, f->nkproto, 1, Proto *,
-                  "constant table overflow", MAXARG_A);
-  f->kproto[f->nkproto++] = func->f;
-  luaK_code2(fs, OP_CLOSURE, f->nkproto-1, func->nupvalues);
+  if (f->nkproto+1 < MAXARG_A) {
+    luaM_growvector(ls->L, f->kproto, f->nkproto, 1, Proto *,
+                    "proto overflow", MAXARG_A);
+    f->kproto[f->nkproto++] = func->f;
+    luaK_code2(fs, OP_CLOSURE, f->nkproto-1, func->nupvalues);
+  }
+  else {  /* index does not fit into A; pass it in an OP_EXTARG */
+    luaM_growvector(ls->L, f->kproto, f->nkproto, 1, Proto *,
+                    "proto overflow", MAXARG_U);
+    f->kproto[f->nkproto++] = func->f;
+    luaK_code1(fs, OP_EXTARG, f->nkproto-1);
+    luaK_code1(fs, OP_CLOSUREX, func->nupvalues);
+  }
 }
 
 
@@ -415,8 +425,17 @@ static void funcargs (LexState *ls, int slf) {
     }
   }
   fs->stacklevel = slevel;  /* call will remove function and arguments */
-  luaK_code2(fs, OP_CALL, slevel, MULT_RET);
+  if (slevel > MAXARG_A) {  /* function does not fit into A? */
+    luaK_code1(fs, OP_EXTARG, slevel);
+    luaK_code2(fs, OP_CALLX, 0, MULT_RET);
+  }
+  else
+    luaK_code2(fs, OP_CALL, slevel, MULT_RET);
 }
+
+
+/* Psychonauts: print a warning for every global variable that is read */
+int luaY_warnglobals;
 
 
 static void var_or_func_tail (LexState *ls, expdesc *v) {
@@ -455,7 +474,14 @@ static void var_or_func_tail (LexState *ls, expdesc *v) {
         v->u.l.t = v->u.l.f = NO_JUMP;
         break;
       }
-      default: return;  /* should be follow... */
+      default: {  /* should be follow... */
+        if (luaY_warnglobals && v->k == VGLOBAL) {
+          const char *gname = ls->fs->f->kstr ?
+                              ls->fs->f->kstr[v->u.index]->str : "<none>";
+          printf("Warning: %s is a global variable\n", gname);
+        }
+        return;
+      }
     }
   }
 }

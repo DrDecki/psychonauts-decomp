@@ -106,6 +106,7 @@ LUA_API int   lua_stackspace (lua_State *L);
 LUA_API int            lua_type (lua_State *L, int index);
 LUA_API const char    *lua_typename (lua_State *L, int t);
 LUA_API int            lua_isnumber (lua_State *L, int index);
+LUA_API int            lua_isrealnumber (lua_State *L, int index);
 LUA_API int            lua_isstring (lua_State *L, int index);
 LUA_API int            lua_iscfunction (lua_State *L, int index);
 LUA_API int            lua_tag (lua_State *L, int index);
@@ -114,6 +115,7 @@ LUA_API int            lua_equal (lua_State *L, int index1, int index2);
 LUA_API int            lua_lessthan (lua_State *L, int index1, int index2);
 
 LUA_API float          lua_tonumber (lua_State *L, int index);
+LUA_API void          *lua_torawvalue (lua_State *L, int index);
 LUA_API const char    *lua_tostring (lua_State *L, int index);
 LUA_API size_t         lua_strlen (lua_State *L, int index);
 LUA_API lua_CFunction  lua_tocfunction (lua_State *L, int index);
@@ -128,6 +130,7 @@ LUA_API void  lua_pushnil (lua_State *L);
 LUA_API void  lua_pushnumber (lua_State *L, float n);
 LUA_API void  lua_pushint (lua_State *L, int n);
 LUA_API void  lua_pushuint (lua_State *L, unsigned int n);
+LUA_API void  lua_pushrawnumber (lua_State *L, int bits);
 LUA_API void  lua_pushlstring (lua_State *L, const char *s, size_t len);
 LUA_API void  lua_pushstring (lua_State *L, const char *s);
 LUA_API void  lua_pushcclosure (lua_State *L, lua_CFunction fn, int n);
@@ -151,6 +154,7 @@ LUA_API void  lua_newtable (lua_State *L);
 ** set functions (stack -> Lua)
 */
 LUA_API void  lua_setglobal (lua_State *L, const char *name);
+LUA_API int   lua_gettablesize (lua_State *L, int index);
 LUA_API void  lua_settable (lua_State *L, int index);
 LUA_API void  lua_rawset (lua_State *L, int index);
 LUA_API void  lua_rawseti (lua_State *L, int index, int n);

@@ -50,6 +50,13 @@ static TObject *luaA_indexAcceptable (lua_State *L, int index) {
 }
 
 
+/* Psychonauts: push a value given by type and contents (e.g. from a Node) */
+void luaA_pushvalue (lua_State *L, int tt, const Value *v) {
+  ttype(L->top) = tt;
+  L->top->value = *v;
+  incr_top;
+}
+
 void luaA_pushobject (lua_State *L, const TObject *o) {
   *L->top = *o;
   incr_top;
@@ -128,6 +135,12 @@ LUA_API int lua_isnumber (lua_State *L, int index) {
   return (o == NULL) ? 0 : (tonumber(o) == 0);
 }
 
+/* Psychonauts: true only for real numbers, not for strings that convert */
+LUA_API int lua_isrealnumber (lua_State *L, int index) {
+  TObject *o = luaA_indexAcceptable(L, index);
+  return (o == NULL) ? 0 : (ttype(o) == LUA_TNUMBER);
+}
+
 LUA_API int lua_isstring (lua_State *L, int index) {
   int t = lua_type(L, index);
   return (t == LUA_TSTRING || t == LUA_TNUMBER);
@@ -158,6 +171,12 @@ LUA_API int lua_lessthan (lua_State *L, int index1, int index2) {
 LUA_API float lua_tonumber (lua_State *L, int index) {
   StkId o = luaA_indexAcceptable(L, index);
   return (o == NULL || tonumber(o)) ? 0 : nvalue(o);
+}
+
+/* Psychonauts: the raw contents of a slot, whatever its type */
+LUA_API void *lua_torawvalue (lua_State *L, int index) {
+  StkId o = luaA_indexAcceptable(L, index);
+  return (o == NULL) ? NULL : o->value.ts;
 }
 
 LUA_API const char *lua_tostring (lua_State *L, int index) {
@@ -222,6 +241,14 @@ LUA_API void lua_pushint (lua_State *L, int n) {
 
 LUA_API void lua_pushuint (lua_State *L, unsigned int n) {
   nvalue(L->top) = (Number)n;
+  ttype(L->top) = LUA_TNUMBER;
+  api_incr_top(L);
+}
+
+
+/* Psychonauts: push a number given by its bits */
+LUA_API void lua_pushrawnumber (lua_State *L, int bits) {
+  *(int *)&nvalue(L->top) = bits;
   ttype(L->top) = LUA_TNUMBER;
   api_incr_top(L);
 }
@@ -338,6 +365,13 @@ LUA_API void lua_setglobal (lua_State *L, const char *name) {
 }
 
 
+/* Psychonauts: number of nodes of a table, -1 if it is no table */
+LUA_API int lua_gettablesize (lua_State *L, int index) {
+  StkId t = Index(L, index);
+  return (ttype(t) == LUA_TTABLE) ? hvalue(t)->size : -1;
+}
+
+
 LUA_API void lua_settable (lua_State *L, int index) {
   StkId t = Index(L, index);
   StkId top = L->top;
@@ -383,8 +417,10 @@ LUA_API int lua_ref (lua_State *L,  int lock) {
       L->refFree = L->refArray[ref].st;
     }
     else {  /* no more free places */
-      luaM_growvector(L, L->refArray, L->refSize, 1, struct Ref,
-                      "reference table overflow", MAX_INT);
+      /* the old size of the array is known here */
+      L->refArray = (struct Ref *)luaM_growaux(L, L->refArray, L->refSize, 1,
+                      sizeof(struct Ref), "reference table overflow", MAX_INT,
+                      L->refArray ? luaO_power2(L->refSize)*sizeof(struct Ref) : 0);
       L->nblocks += sizeof(struct Ref);
       ref = L->refSize++;
     }

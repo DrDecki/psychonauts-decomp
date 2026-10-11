@@ -425,10 +425,13 @@ static void codelineinfo (FuncState *fs) {
   Proto *f = fs->f;
   LexState *ls = fs->ls;
   if (ls->lastline > fs->lastline) {
-    luaM_growvector(fs->L, f->lineinfo, f->nlineinfo, 2, int,
-                    "line info overflow", MAX_INT);
-    if (ls->lastline > fs->lastline+1)
+    if (ls->lastline > fs->lastline+1) {
+      luaM_growvector(fs->L, f->lineinfo, f->nlineinfo, 1, int,
+                      "line info overflow", MAX_INT);
       f->lineinfo[f->nlineinfo++] = -(ls->lastline - (fs->lastline+1));
+    }
+    luaM_growvector(fs->L, f->lineinfo, f->nlineinfo, 1, int,
+                    "line info overflow", MAX_INT);
     f->lineinfo[f->nlineinfo++] = fs->pc;
     fs->lastline = ls->lastline;
   }
@@ -445,11 +448,18 @@ int luaK_code1 (FuncState *fs, OpCode o, int arg1) {
 }
 
 
+#define DEBUG_CODEGEN	0
+
 int luaK_code2 (FuncState *fs, OpCode o, int arg1, int arg2) {
   Instruction i = previous_instruction(fs);
   int delta = luaK_opproperties[o].push - luaK_opproperties[o].pop;
   int optm = 0;  /* 1 when there is an optimization */
+  int imode;
   switch (o) {
+    case OP_CLOSUREX: {
+      delta = -arg1+1;
+      break;
+    }
     case OP_CLOSURE: {
       delta = -arg2+1;
       break;
@@ -634,6 +644,13 @@ int luaK_code2 (FuncState *fs, OpCode o, int arg1, int arg2) {
       return fs->pc-1;  /* do not generate new instruction */
   }
   /* else build new instruction */
+  imode = luaK_opproperties[o].mode;
+  /* two disabled debug blocks; whatever was in them is compiled out, but
+     they still change which registers the compiler picks below */
+  if (DEBUG_CODEGEN) {
+  }
+  if (DEBUG_CODEGEN) {
+  }
   switch ((enum Mode)luaK_opproperties[o].mode) {
     case iO: i = CREATE_0(o); break;
     case iU: i = CREATE_U(o, arg1); break;

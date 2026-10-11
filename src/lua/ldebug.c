@@ -304,6 +304,7 @@ static int pushpc (int *stack, int pc, int top, int n) {
 static Instruction luaG_symbexec (const Proto *pt, int lastpc, int stackpos) {
   int stack[MAXSTACK];  /* stores last instruction that changed a stack entry */
   const Instruction *code = pt->code;
+  int extraarg = INT_MAX;  /* argument from the last OP_EXTARG */
   int top = pt->numparams;
   int pc = 0;
   if (pt->is_vararg)  /* varargs? */
@@ -320,6 +321,28 @@ static Instruction luaG_symbexec (const Proto *pt, int lastpc, int stackpos) {
       case OP_TAILCALL: {
         LUA_ASSERT(top >= GETARG_A(i), "wrong stack");
         top = GETARG_B(i);
+        break;
+      }
+      case OP_EXTARG: {
+        extraarg = GETARG_U(i);
+        break;
+      }
+      case OP_EXTARGS: {
+        extraarg = GETARG_S(i);
+        break;
+      }
+      case OP_CALLX: {
+        int nresults = GETARG_B(i);
+        if (nresults == MULT_RET) nresults = 1;
+        LUA_ASSERT(top >= extraarg, "wrong stack");
+        top = pushpc(stack, pc, extraarg, nresults);
+        extraarg = INT_MAX;
+        break;
+      }
+      case OP_CLOSUREX: {
+        top -= GETARG_U(i);
+        stack[top++] = pc-1;
+        extraarg = INT_MAX;
         break;
       }
       case OP_CALL: {

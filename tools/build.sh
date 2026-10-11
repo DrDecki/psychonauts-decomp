@@ -20,12 +20,12 @@ else
 fi
 
 # no optimization, intrinsics on, dynamic CRT (msvcr90.dll), no stack cookies
-CFLAGS="/nologo /c /Od /Oi /MD /GS-"
+CFLAGS="/nologo /c /Od /Ob1 /Oi /MD /GS-"
 
 for dir in "$ROOT"/src/*/; do
     name=$(basename "$dir")
     rm -rf "$ROOT/build/$name"
     mkdir -p "$ROOT/build/$name"
     cd "$ROOT/build/$name"
-    $RUN "$VC/bin/cl.exe" $CFLAGS /I"$INCLUDE" ../../src/"$name"/*.c | grep -vE '^(Compiling|Generating Code)|\.c\s*$' || true
+    $RUN "$VC/bin/cl.exe" $CFLAGS /I"$INCLUDE" ../../src/"$name"/*.c | grep -vE '^(Compiling|Generating Code)|\.c\s*$|C4005|definition of .errno.' || true
 done

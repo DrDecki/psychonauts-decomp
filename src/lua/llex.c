@@ -1,5 +1,6 @@
 /*
 ** $Id: llex.c,v 1.72 2000/10/20 16:39:03 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -195,7 +196,10 @@ static void read_long_string (LexState *LS, SemInfo *seminfo) {
     switch (LS->current) {
       case EOZ:
         save(L, '\0', l);
-        luaX_error(LS, "unfinished long string", TK_STRING);
+        if (seminfo)
+          luaX_error(LS, "unfinished long string", TK_STRING);
+        else
+          luaX_error(LS, "unfinished comment", TK_EOS);
         break;  /* to avoid warnings */
       case '[':
         save_and_next(L, LS, l);
@@ -217,12 +221,15 @@ static void read_long_string (LexState *LS, SemInfo *seminfo) {
         inclinenumber(LS);
         continue;
       default:
-        save_and_next(L, LS, l);
+        if (seminfo)  /* comments are not saved */
+          save(L, LS->current, l);
+        next(LS);
     }
   } endloop:
   save_and_next(L, LS, l);  /* skip the second ']' */
   save(L, '\0', l);
-  seminfo->ts = luaS_newlstr(L, L->Mbuffer+2, l-5);
+  if (seminfo)  /* no `seminfo' for a long comment */
+    seminfo->ts = luaS_newlstr(L, L->Mbuffer+2, l-5);
 }
 
 
@@ -297,7 +304,10 @@ int luaX_lex (LexState *LS, SemInfo *seminfo) {
       case '-':
         next(LS);
         if (LS->current != '-') return '-';
-        do { next(LS); } while (LS->current != '\n' && LS->current != EOZ);
+        if (next(LS) == '[' && next(LS) == '[')  /* long comment `--[[ ]]' */
+          read_long_string(LS, NULL);
+        else
+          while (LS->current != '\n' && LS->current != EOZ) next(LS);
         continue;
 
       case '[':

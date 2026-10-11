@@ -1,13 +1,13 @@
 # Psychonauts
 
 ![Lua scripts](https://img.shields.io/badge/Lua%20scripts-100%25-brightgreen)
-![Engine](https://img.shields.io/badge/Engine-4.52%25%20(494%2F10930)-red)
+![Engine](https://img.shields.io/badge/Engine-4.67%25%20(510%2F10930)-red)
 
 A work-in-progress decompilation of Psychonauts (2005, PC).
 
 The game is split into two very different parts:
 
-- **The engine** (`Psychonauts.exe`): C++, 32 bit x86. Rendering, physics, audio, loading, the Lua runtime. **Just started:** the Lua runtime inside the executable comes first.
+- **The engine** (`Psychonauts.exe`): C++, 32 bit x86. Rendering, physics, audio, loading, the Lua runtime. **Just started:** the Lua runtime inside the executable matches completely, the C++ part is next.
 - **The scripts**: Lua 4.0 with some Double Fine changes. Raz, enemies, bosses, cutscenes, every level script. **Done:** every function decompiles to source that recompiles to the exact same bytes.
 
 This repository does **not** contain any game assets or game code. You need your own copy of the game.
@@ -17,7 +17,7 @@ This repository does **not** contain any game assets or game code. You need your
 | Part | Matching | Notes |
 | --- | --- | --- |
 | Lua scripts | 106607 / 106607 functions (100 %) | 9955 bytecode chunks from `.lub`, `.lpf`, `.ppf` and `.pkg` files |
-| Engine | 494 / 10930 functions (4.52 %) | Lua 4.0 runtime in `src/lua` (494 of its 507 functions), everything else not started |
+| Engine | 510 / 10930 functions (4.67 %) | Lua 4.0 runtime in `src/lua` is complete, everything else not started |
 
 "Matching" means the decompiled function, compiled again, gives byte for byte the same code as the original. For the scripts that is Lua bytecode, for the engine x86 machine code. The tools check this for every single function, so the numbers above are not estimates.
 
@@ -154,11 +154,11 @@ pip install capstone pefile
 python3 tools/funclist.py /path/to/Psychonauts.exe engine/functions.csv
 ```
 
-The game code was compiled with `/Od /Oi /MD /GS-`, so without optimizations. That is a lucky break: unoptimized code follows the source very closely, which makes a matching decompilation a lot easier than usual. Functions are padded to 16 bytes with `int3`, exactly like the compiler does it inside an object file.
+The game code was compiled with `/Od /Ob1 /Oi /MD /GS-`, so without optimizations. That is a lucky break: unoptimized code follows the source very closely, which makes a matching decompilation a lot easier than usual. Functions are padded to 16 bytes with `int3`, exactly like the compiler does it inside an object file.
 
 ### The Lua runtime
 
-The first thing being matched is the Lua 4.0 runtime that is linked into the executable, because its source is public. `src/lua` started as the unmodified Lua 4.0 release (the first commit that touches it), everything after that are changes needed to match the executable. Comparing against 4.0.1 gives fewer matches, so Double Fine used 4.0.
+The first part that was matched is the Lua 4.0 runtime that is linked into the executable, because its source is public. All 510 functions match now. `src/lua` started as the unmodified Lua 4.0 release (the first commit that touches it), everything after that are changes needed to match the executable. Comparing against 4.0.1 gives fewer matches, so Double Fine used 4.0.
 
 Changes found so far:
 
@@ -174,13 +174,20 @@ Changes found so far:
 - Numbers compare equal if their bits are equal, before the float compare
 - Three new opcodes in the VM: `OP_EXTARG`/`OP_EXTARGS` keep an argument for the next instruction, `OP_CALLX` and `OP_CLOSUREX` use it
 - Two hooks into the garbage collector, so the engine can mark the stacks of its other Lua states and gets called before and after every collection
+- The parser and the debug code know the new opcodes too: a function call or closure whose index doesn't fit into 5 bits gets an `OP_EXTARG` in front
+- Long comments `--[[ ... ]]` like in Lua 5, done with the long string reader
+- The parser can print a warning for every global variable it reads (`luaY_warnglobals`, off by default)
+- `string.format` knows `%H`, which prints the bits of a number in hex
+- Five more API functions: `lua_isrealnumber`, `lua_torawvalue`, `lua_pushrawnumber`, `lua_gettablesize` and `luaA_pushvalue`. The names are made up, the real ones are lost.
 - Some frees pass the real size of the block (`luaM_freesize`, `luaM_freevector`)
 - The names `LUA_TCLASS` and `LUA_TLSO` show up as strings in the executable, but nothing in the runtime uses them so far. Probably engine side.
 
-Two things about the compiler that took a while to figure out:
+Some things about the compiler that took a while to figure out:
 
 - Static functions are not placed where they are in the source, but right after the first function that uses them. So the order of functions in the executable looks shuffled even when the source order is the same.
 - The stack slots of local variables depend on their names. The compiler keeps locals in a hash table and lays them out bucket by bucket, so renaming a variable can move it. Since the real names are lost, the reconstructed code uses names that land in the right slots.
+- `/Ob1` inlines functions marked `__inline` even without optimizations, which is how `time()` and `localtime()` from the CRT headers disappear into `io.date`.
+- Even code that compiles to nothing can matter. An empty `if (0) {}` changes which registers the next statements get, and `luaK_code2` only matches with two of them.
 
 The rest of the engine will follow the usual setup for MSVC games: a Ghidra project to map out the functions, then decompiled C++ compiled with the original compiler and compared function by function, similar to how [isledecomp](https://github.com/isledecomp/isle) does it with `reccmp`.
 

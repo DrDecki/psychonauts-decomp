@@ -564,6 +564,11 @@ static int str_format (lua_State *L) {
         case 'c':  case 'd':  case 'i':
           sprintf(buff, form, luaL_check_int(L, arg));
           break;
+        case 'H': {  /* Psychonauts: the bits of a number, in hex */
+          float f = luaL_check_number(L, arg);
+          sprintf(buff, "%x", *(int *)&f);
+          break;
+        }
         case 'o':  case 'u':  case 'x':  case 'X':
           sprintf(buff, form, (unsigned int)luaL_check_number(L, arg));
           break;
