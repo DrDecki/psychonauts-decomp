@@ -107,9 +107,10 @@ sudo apt install p7zip-full msitools
 cd ixp && msiextract -C ../vc vs_setup.msi && cd ..
 mv "vc/Program Files/Microsoft Visual Studio 9.0/VC:Vc7" VC
 cp "vc/Program Files/Microsoft Visual Studio 9.0/Common7/IDE/"{mspdb80.dll,mspdbcore.dll,mspdbsrv.exe,msobj80.dll} VC/bin/
+mv VC/include/CodeAnalysis VC/include/codeanalysis
 ```
 
-`VC:Vc7` is really the folder name, msiextract keeps the internal name from the installer. `VC/bin/cl.exe` should now print `Version 15.00.21022.08 for 80x86`.
+`VC:Vc7` is really the folder name, msiextract keeps the internal name from the installer. The last line is needed because `sal.h` includes that folder in lowercase and Linux folders are case sensitive. `VC/bin/cl.exe` should now print `Version 15.00.21022.08 for 80x86`.
 
 Then build and compare:
 
