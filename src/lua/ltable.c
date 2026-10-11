@@ -1,5 +1,6 @@
 /*
 ** $Id: ltable.c,v 1.58 2000/10/26 12:47:05 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -37,74 +38,80 @@
 
 /*
 ** returns the `main' position of an element in a table (that is, the index
-** of its hash value)
+** of its hash value), counting from 1; 0 for an invalid key
 */
-Node *luaH_mainposition (const Hash *t, const TObject *key) {
+int luaH_mainindex (const Hash *t, int tt, const Value *v) {
   unsigned long h;
-  switch (ttype(key)) {
+  switch (tt) {
     case LUA_TNUMBER:
-      h = (unsigned long)(long)nvalue(key);
+      h = (unsigned long)(long)v->n;
       break;
     case LUA_TSTRING:
-      h = tsvalue(key)->u.s.hash;
+      h = v->ts->u.s.hash;
       break;
     case LUA_TUSERDATA:
-      h = IntPoint(tsvalue(key));
+      h = IntPoint(v->ts);
       break;
     case LUA_TTABLE:
-      h = IntPoint(hvalue(key));
+      h = IntPoint(v->a);
       break;
     case LUA_TFUNCTION:
-      h = IntPoint(clvalue(key));
+      h = IntPoint(v->cl);
       break;
     default:
-      return NULL;  /* invalid key */
+      return 0;  /* invalid key */
   }
   LUA_ASSERT(h%(unsigned int)t->size == (h&((unsigned int)t->size-1)),
             "a&(x-1) == a%x, for x power of 2");
-  return &t->node[h&(t->size-1)];
+  return (h&(t->size-1)) + 1;
 }
 
 
-static const TObject *luaH_getany (lua_State *L, const Hash *t,
-                                   const TObject *key) {
+Node *luaH_mainposition (const Hash *t, const TObject *key) {
+  int i = luaH_mainindex(t, ttype(key), &key->value);
+  return i ? node(t, i-1) : NULL;
+}
+
+
+static const Node *luaH_getany (lua_State *L, const Hash *t,
+                                const TObject *key) {
   Node *n = luaH_mainposition(t, key);
   if (!n)
     lua_error(L, "table index is nil");
   else do {
-    if (luaO_equalObj(key, &n->key))
-      return &n->val;
-    n = n->next;
+    if (luaO_equalValue(key, n->keytt, &n->key))
+      return n;
+    n = nextnode(t, n);
   } while (n);
-  return &luaO_nilobject;  /* key not found */
+  return &luaO_nilnode;  /* key not found */
 }
 
 
 /* specialized version for numbers */
-const TObject *luaH_getnum (const Hash *t, Number key) {
+const Node *luaH_getnum (const Hash *t, Number key) {
   Node *n = &t->node[(unsigned long)(long)key&(t->size-1)];
   do {
-    if (ttype(&n->key) == LUA_TNUMBER && nvalue(&n->key) == key)
-      return &n->val;
-    n = n->next;
+    if (n->keytt == LUA_TNUMBER && n->key.n == key)
+      return n;
+    n = nextnode(t, n);
   } while (n);
-  return &luaO_nilobject;  /* key not found */
+  return &luaO_nilnode;  /* key not found */
 }
 
 
 /* specialized version for strings */
-const TObject *luaH_getstr (const Hash *t, TString *key) {
+const Node *luaH_getstr (const Hash *t, TString *key) {
   Node *n = &t->node[key->u.s.hash&(t->size-1)];
   do {
-    if (ttype(&n->key) == LUA_TSTRING && tsvalue(&n->key) == key)
-      return &n->val;
-    n = n->next;
+    if (n->keytt == LUA_TSTRING && n->key.ts == key)
+      return n;
+    n = nextnode(t, n);
   } while (n);
-  return &luaO_nilobject;  /* key not found */
+  return &luaO_nilnode;  /* key not found */
 }
 
 
-const TObject *luaH_get (lua_State *L, const Hash *t, const TObject *key) {
+const Node *luaH_get (lua_State *L, const Hash *t, const TObject *key) {
   switch (ttype(key)) {
     case LUA_TNUMBER: return luaH_getnum(t, nvalue(key));
     case LUA_TSTRING: return luaH_getstr(t, tsvalue(key));
@@ -118,15 +125,15 @@ Node *luaH_next (lua_State *L, const Hash *t, const TObject *key) {
   if (ttype(key) == LUA_TNIL)
     i = 0;  /* first iteration */
   else {
-    const TObject *v = luaH_get(L, t, key);
-    if (v == &luaO_nilobject)
+    const Node *v = luaH_get(L, t, key);
+    if (v == &luaO_nilnode)
       lua_error(L, "invalid key for `next'");
     i = (int)(((const char *)v -
-               (const char *)(&t->node[0].val)) / sizeof(Node)) + 1;
+               (const char *)(&t->node[0])) / sizeof(Node)) + 1;
   }
   for (; i<t->size; i++) {
     Node *n = node(t, i);
-    if (ttype(val(n)) != LUA_TNIL)
+    if (n->valtt != LUA_TNIL)
       return n;
   }
   return NULL;  /* no more elements */
@@ -137,35 +144,34 @@ Node *luaH_next (lua_State *L, const Hash *t, const TObject *key) {
 ** try to remove a key without value from a table. To avoid problems with
 ** hash, change `key' for a number with the same hash.
 */
-void luaH_remove (Hash *t, TObject *key) {
-  if (ttype(key) == LUA_TNUMBER ||
-       (ttype(key) == LUA_TSTRING && tsvalue(key)->len <= 30))
+void luaH_remove (Hash *t, Node *key) {
+  if (key->keytt == LUA_TNUMBER ||
+       (key->keytt == LUA_TSTRING && key->key.ts->len <= 30))
   return;  /* do not remove numbers nor small strings */
   else {
     /* try to find a number `n' with the same hash as `key' */
-    Node *mp = luaH_mainposition(t, key);
-    int n = mp - &t->node[0];
+    int mp = luaH_mainindex(t, key->keytt, &key->key);
+    int n = mp - 1;
     /* make sure `n' is not in `t' */
-    while (luaH_getnum(t, n) != &luaO_nilobject) {
-      if (n >= MAX_INT - t->size)
+    while (luaH_getnum(t, n) != &luaO_nilnode) {
+      if (n >= MAX_SHORT - t->size)
         return;  /* give up; (to avoid overflow) */
       n += t->size;
     }
-    ttype(key) = LUA_TNUMBER;
-    nvalue(key) = n;
-    LUA_ASSERT(luaH_mainposition(t, key) == mp, "cannot change hash");
+    key->keytt = LUA_TNUMBER;
+    key->key.n = n;
   }
 }
 
 
 static void setnodevector (lua_State *L, Hash *t, lint32 size) {
   int i;
-  if (size > MAX_INT)
+  if (size > MAX_SHORT)
     lua_error(L, "table overflow");
   t->node = luaM_newvector(L, size, Node);
   for (i=0; i<(int)size; i++) {
-    ttype(&t->node[i].key) = ttype(&t->node[i].val) = LUA_TNIL;
-    t->node[i].next = NULL;
+    t->node[i].keytt = t->node[i].valtt = LUA_TNIL;
+    t->node[i].next = 0;
   }
   L->nblocks += gcsize(L, size) - gcsize(L, t->size);
   t->size = size;
@@ -189,8 +195,8 @@ Hash *luaH_new (lua_State *L, int size) {
 
 void luaH_free (lua_State *L, Hash *t) {
   L->nblocks -= gcsize(L, t->size);
-  luaM_free(L, t->node);
-  luaM_free(L, t);
+  luaM_freevector(L, t->node, t->size, Node);
+  luaM_freesize(L, t, sizeof(Hash));
 }
 
 
@@ -200,7 +206,7 @@ static int numuse (const Hash *t) {
   int realuse = 0;
   int i;
   for (i=0; i<size; i++) {
-    if (ttype(&v[i].val) != LUA_TNIL)
+    if (v[i].valtt != LUA_TNIL)
       realuse++;
   }
   return realuse;
@@ -222,10 +228,16 @@ static void rehash (lua_State *L, Hash *t) {
     setnodevector(L, t, oldsize);
   for (i=0; i<oldsize; i++) {
     Node *old = nold+i;
-    if (ttype(&old->val) != LUA_TNIL)
-      *luaH_set(L, t, &old->key) = old->val;
+    if (old->valtt != LUA_TNIL) {
+      TObject key;
+      Node *slot;
+      getnodekey(&key, old);
+      slot = luaH_set(L, t, &key);
+      slot->valtt = old->valtt;
+      slot->val = old->val;
+    }
   }
-  luaM_free(L, nold);  /* free old array */
+  luaM_freevector(L, nold, oldsize, Node);  /* free old array */
 }
 
 
@@ -237,40 +249,43 @@ static void rehash (lua_State *L, Hash *t) {
 ** in its main position; otherwise (colliding node is in its main position),
 ** new key goes to an empty position.
 */
-TObject *luaH_set (lua_State *L, Hash *t, const TObject *key) {
-  Node *mp = luaH_mainposition(t, key);
-  Node *n = mp;
-  if (!mp)
+Node *luaH_set (lua_State *L, Hash *t, const TObject *key) {
+  int mpi = luaH_mainindex(t, ttype(key), &key->value);
+  int pos = mpi;
+  Node *mp;
+  if (!mpi)
     lua_error(L, "table index is nil");
   do {  /* check whether `key' is somewhere in the chain */
-    if (luaO_equalObj(key, &n->key))
-      return &n->val;  /* that's all */
-    else n = n->next;
-  } while (n);
+    if (luaO_equalValue(key, t->node[pos-1].keytt, &t->node[pos-1].key))
+      return &t->node[pos-1];  /* that's all */
+    else pos = t->node[pos-1].next;
+  } while (pos);
   /* `key' not found; must insert it */
-  if (ttype(&mp->key) != LUA_TNIL) {  /* main position is not free? */
-    Node *othern;  /* main position of colliding node */
-    n = t->firstfree;  /* get a free place */
+  mp = &t->node[mpi-1];
+  if (mp->keytt != LUA_TNIL) {  /* main position is not free? */
+    int othern;  /* main position of colliding node */
+    pos = t->firstfree - t->node + 1;  /* get a free place */
     /* is colliding node out of its main position? (can only happens if
        its position is after "firstfree") */
-    if (mp > n && (othern=luaH_mainposition(t, &mp->key)) != mp) {
+    if (mpi > pos && (othern=luaH_mainindex(t, mp->keytt, &mp->key)) != mpi) {
       /* yes; move colliding node into free position */
-      while (othern->next != mp) othern = othern->next;  /* find previous */
-      othern->next = n;  /* redo the chain with `n' in place of `mp' */
-      *n = *mp;  /* copy colliding node into free pos. (mp->next also goes) */
-      mp->next = NULL;  /* now `mp' is free */
+      while (t->node[othern-1].next != mpi)
+        othern = t->node[othern-1].next;  /* find previous */
+      t->node[othern-1].next = pos;  /* redo the chain with `pos' in place of `mp' */
+      t->node[pos-1] = *mp;  /* copy colliding node into free pos. (mp->next also goes) */
+      mp->next = 0;  /* now `mp' is free */
     }
     else {  /* colliding node is in its own main position */
       /* new node will go into free position */
-      n->next = mp->next;  /* chain new position */
-      mp->next = n;
-      mp = n;
+      t->node[pos-1].next = mp->next;  /* chain new position */
+      mp->next = pos;
+      mp = &t->node[pos-1];
     }
   }
-  mp->key = *key;
+  setnodekey(mp, key);
   for (;;) {  /* correct `firstfree' */
-    if (ttype(&t->firstfree->key) == LUA_TNIL)
-      return &mp->val;  /* OK; table still has a free place */
+    if (t->firstfree->keytt == LUA_TNIL)
+      return mp;  /* OK; table still has a free place */
     else if (t->firstfree == t->node) break;  /* cannot decrement from here */
     else (t->firstfree)--;
   }
@@ -279,7 +294,7 @@ TObject *luaH_set (lua_State *L, Hash *t, const TObject *key) {
 }
 
 
-TObject *luaH_setint (lua_State *L, Hash *t, int key) {
+Node *luaH_setint (lua_State *L, Hash *t, int key) {
   TObject index;
   ttype(&index) = LUA_TNUMBER;
   nvalue(&index) = key;
@@ -288,16 +303,17 @@ TObject *luaH_setint (lua_State *L, Hash *t, int key) {
 
 
 void luaH_setstrnum (lua_State *L, Hash *t, TString *key, Number val) {
-  TObject *value, index;
+  TObject index;
+  Node *slot;
   ttype(&index) = LUA_TSTRING;
   tsvalue(&index) = key;
-  value = luaH_set(L, t, &index);
-  ttype(value) = LUA_TNUMBER;
-  nvalue(value) = val;
+  slot = luaH_set(L, t, &index);
+  slot->valtt = LUA_TNUMBER;
+  slot->val.n = val;
 }
 
 
-const TObject *luaH_getglobal (lua_State *L, const char *name) {
+const Node *luaH_getglobal (lua_State *L, const char *name) {
   return luaH_getstr(L->gt, luaS_new(L, name));
 }
 

@@ -1,5 +1,6 @@
 /*
 ** $Id: lstring.c,v 1.45 2000/10/30 17:49:19 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -36,11 +37,15 @@ void luaS_init (lua_State *L) {
 
 
 void luaS_freeall (lua_State *L) {
+  lint32 size;
   LUA_ASSERT(L->strt.nuse==0, "non-empty string table");
-  L->nblocks -= (L->strt.size + L->udt.size)*sizeof(TString *);
-  luaM_free(L, L->strt.hash);
+  size = L->strt.size*sizeof(TString *);
+  L->nblocks -= size;
+  luaM_freesize(L, L->strt.hash, size);
   LUA_ASSERT(L->udt.nuse==0, "non-empty udata table");
-  luaM_free(L, L->udt.hash);
+  size = L->udt.size*sizeof(TString *);
+  L->nblocks -= size;
+  luaM_freesize(L, L->udt.hash, size);
 }
 
 
@@ -71,7 +76,7 @@ void luaS_resize (lua_State *L, stringtable *tb, int newsize) {
       p = next;
     }
   }
-  luaM_free(L, tb->hash);
+  luaM_freevector(L, tb->hash, tb->size, TString *);
   L->nblocks += (newsize - tb->size)*sizeof(TString *);
   tb->size = newsize;
   tb->hash = newhash;

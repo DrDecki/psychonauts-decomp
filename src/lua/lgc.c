@@ -26,6 +26,13 @@ typedef struct GCState {
 
 
 static void markobject (GCState *st, TObject *o);
+static void markvalue (GCState *st, int tt, Value *v);
+
+
+/* hooks for the engine: other states to mark, and calls around each collection */
+lua_GCMarkHook luaC_markhook;
+lua_GCHook luaC_gchook;
+static GCState *gcstate;  /* state of the running collection, for luaC_markstack */
 
 
 /* mark a string; marks larger than 1 cannot be changed */
@@ -52,6 +59,12 @@ static void markstack (lua_State *L, GCState *st) {
   StkId o;
   for (o=L->stack; o<L->top; o++)
     markobject(st, o);
+}
+
+
+/* given to luaC_markhook: marks the stack of another state */
+void luaC_markstack (lua_State *L) {
+  markstack(L, gcstate);
 }
 
 
@@ -86,26 +99,31 @@ static void marktagmethods (lua_State *L, GCState *st) {
 }
 
 
-static void markobject (GCState *st, TObject *o) {
-  switch (ttype(o)) {
+static void markvalue (GCState *st, int tt, Value *v) {
+  switch (tt) {
     case LUA_TUSERDATA:  case LUA_TSTRING:
-      strmark(tsvalue(o));
+      strmark(v->ts);
       break;
     case LUA_TMARK:
-      markclosure(st, infovalue(o)->func);
+      markclosure(st, v->i->func);
       break;
     case LUA_TFUNCTION:
-      markclosure(st, clvalue(o));
+      markclosure(st, v->cl);
       break;
     case LUA_TTABLE: {
-      if (!ismarked(hvalue(o))) {
-        hvalue(o)->mark = st->tmark;  /* chain it in list of marked */
-        st->tmark = hvalue(o);
+      if (!ismarked(v->a)) {
+        v->a->mark = st->tmark;  /* chain it in list of marked */
+        st->tmark = v->a;
       }
       break;
     }
     default: break;  /* numbers, etc */
   }
+}
+
+
+static void markobject (GCState *st, TObject *o) {
+  markvalue(st, ttype(o), &o->value);
 }
 
 
@@ -115,6 +133,10 @@ static void markall (lua_State *L) {
   st.tmark = L->gt;  /* put table of globals in mark list */
   L->gt->mark = NULL;
   marktagmethods(L, &st);  /* mark tag methods */
+  if (luaC_markhook) {  /* let the engine mark its other states */
+    gcstate = &st;
+    luaC_markhook(luaC_markstack);
+  }
   markstack(L, &st); /* mark stack objects */
   marklock(L, &st); /* mark locked objects */
   for (;;) {  /* mark tables and closures */
@@ -131,11 +153,11 @@ static void markall (lua_State *L) {
       st.tmark = h->mark;  /* remove it from list */
       for (i=0; i<h->size; i++) {
         Node *n = node(h, i);
-        if (ttype(key(n)) != LUA_TNIL) {
-          if (ttype(val(n)) == LUA_TNIL)
-            luaH_remove(h, key(n));  /* dead element; try to remove it */
-          markobject(&st, &n->key);
-          markobject(&st, &n->val);
+        if (n->keytt != LUA_TNIL) {
+          if (n->valtt == LUA_TNIL)
+            luaH_remove(h, n);  /* dead element; try to remove it */
+          markvalue(&st, n->keytt, &n->key);
+          markvalue(&st, n->valtt, &n->val);
         }
       }
     }
@@ -250,7 +272,7 @@ static void collectstrings (lua_State *L, int all) {
         *p = next->nexthash;
         L->strt.nuse--;
         L->nblocks -= sizestring(next->len);
-        luaM_free(L, next);
+        luaM_freesize(L, next, sizestring(next->len));
       }
     }
   }
@@ -289,7 +311,7 @@ static void checkMbuffer (lua_State *L) {
     size_t newsize = L->Mbuffsize/2;  /* still larger than MINBUFFER */
     L->nblocks += (newsize - L->Mbuffsize)*sizeof(char);
     L->Mbuffsize = newsize;
-    L->Mbuffer = (char *)luaM_realloc(L, L->Mbuffer, newsize, L->Mbuffsize);
+    luaM_reallocvector(L, L->Mbuffer, newsize, char);
   }
 }
 
@@ -338,12 +360,14 @@ void luaC_collect (lua_State *L, int all) {
 
 
 static void luaC_collectgarbage (lua_State *L) {
+  if (luaC_gchook) luaC_gchook(0, L);
   markall(L);
   invalidaterefs(L);  /* check unlocked references */
   luaC_collect(L, 0);
   checkMbuffer(L);
   L->GCthreshold = 2*L->nblocks;  /* set new threshold */
   callgcTM(L, &luaO_nilobject);
+  if (luaC_gchook) luaC_gchook(1, L);
 }
 
 

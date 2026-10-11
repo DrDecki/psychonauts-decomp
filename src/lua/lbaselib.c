@@ -103,7 +103,7 @@ static int luaB_tonumber (lua_State *L) {
     if (s1 != s2) {  /* at least one valid digit? */
       while (isspace((unsigned char)*s2)) s2++;  /* skip trailing spaces */
       if (*s2 == '\0') {  /* no invalid trailing characters? */
-        lua_pushnumber(L, n);
+        lua_pushuint(L, n);
         return 1;
       }
     }

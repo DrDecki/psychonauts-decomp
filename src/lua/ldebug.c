@@ -1,5 +1,6 @@
 /*
 ** $Id: ldebug.c,v 1.50 2000/10/30 12:38:50 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -223,9 +224,9 @@ static const char *travglobals (lua_State *L, const TObject *o) {
   Hash *g = L->gt;
   int i;
   for (i=0; i<g->size; i++) {
-    if (luaO_equalObj(o, val(node(g, i))) &&
-        ttype(key(node(g, i))) == LUA_TSTRING) 
-      return tsvalue(key(node(g, i)))->str;
+    if (luaO_equalValue(o, node(g, i)->valtt, &node(g, i)->val) &&
+        node(g, i)->keytt == LUA_TSTRING) 
+      return node(g, i)->key.ts->str;
   }
   return NULL;
 }

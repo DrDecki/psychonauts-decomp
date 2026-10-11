@@ -330,9 +330,9 @@ struct lua_longjmp {
 
 
 static void message (lua_State *L, const char *s) {
-  const TObject *em = luaH_getglobal(L, LUA_ERRORMESSAGE);
-  if (ttype(em) == LUA_TFUNCTION) {
-    *L->top = *em;
+  const Node *em = luaH_getglobal(L, LUA_ERRORMESSAGE);
+  if (em->valtt == LUA_TFUNCTION) {
+    getnodeval(L->top, em);
     incr_top;
     lua_pushstring(L, s);
     luaD_call(L, L->top-2, 0);

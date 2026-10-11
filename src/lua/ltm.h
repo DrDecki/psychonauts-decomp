@@ -1,5 +1,6 @@
 /*
 ** $Id: ltm.h,v 1.18 2000/10/05 13:00:17 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -43,6 +44,7 @@ struct TM {
 
 #define luaT_gettm(L,tag,event) (L->TMtable[tag].method[event])
 #define luaT_gettmbyObj(L,o,e)  (luaT_gettm((L),luaT_tag(o),(e)))
+#define luaT_gettmbyNode(L,n,e) (luaT_gettm((L),luaT_tagvalue((n)->valtt,&(n)->val),(e)))
 
 
 #define validtag(t) (NUM_TAGS <= (t) && (t) <= L->last_tag)
@@ -52,6 +54,7 @@ extern const char *const luaT_eventname[];
 
 void luaT_init (lua_State *L);
 void luaT_realtag (lua_State *L, int tag);
+int luaT_tagvalue (int t, const Value *v);
 int luaT_tag (const TObject *o);
 int luaT_validevent (int t, int e);  /* used by compatibility module */
 

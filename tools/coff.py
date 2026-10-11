@@ -107,7 +107,7 @@ class ObjFile:
     def qualified(self, sym):
         """static symbols ($SG strings, static functions) are local to this object"""
         if sym.storage == 3 or (sym.storage != 2 and sym.section > 0):
-            return "%s:%s" % (self.path.split("/")[-1], sym.name)
+            return "%s:%s#%d" % (self.path.split("/")[-1], sym.name, sym.index)
         return sym.name
 
     def section(self, index):

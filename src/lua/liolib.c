@@ -19,6 +19,9 @@
 #include "lualib.h"
 
 
+/* Psychonauts: no locale and no errno */
+#define OLD_ANSI
+
 #ifndef OLD_ANSI
 #include <errno.h>
 #include <locale.h>
@@ -71,8 +74,8 @@ static int pushresult (lua_State *L, int i) {
   }
   else {
     lua_pushnil(L);
-    lua_pushstring(L, "generic I/O error");
-    lua_pushint(L, -1);
+    lua_pushstring(L, strerror(errno));
+    lua_pushint(L, errno);
     return 3;;
   }
 }

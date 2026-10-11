@@ -62,6 +62,11 @@ typedef struct lua_State lua_State;
 
 typedef int (*lua_CFunction) (lua_State *L);
 
+/* Psychonauts: hooks into the garbage collector */
+typedef void (*lua_MarkFunction) (lua_State *L);
+typedef void (*lua_GCMarkHook) (lua_MarkFunction markstate);
+typedef void (*lua_GCHook) (int after, lua_State *L);
+
 /*
 ** types returned by `lua_type'
 */
@@ -187,6 +192,8 @@ LUA_API int   lua_getn (lua_State *L, int index);
 LUA_API void  lua_concat (lua_State *L, int n);
 
 LUA_API void *lua_newuserdata (lua_State *L, size_t size);
+LUA_API void  lua_setgcmarkhook (lua_GCMarkHook hook);
+LUA_API void  lua_setgchook (lua_GCHook hook);
 
 
 /* 

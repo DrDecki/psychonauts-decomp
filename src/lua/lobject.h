@@ -1,5 +1,6 @@
 /*
 ** $Id: lobject.h,v 1.82 2000/10/30 17:49:19 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Type definitions for Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -151,9 +152,11 @@ typedef struct Closure {
 
 
 typedef struct Node {
-  TObject key;
-  TObject val;
-  struct Node *next;  /* for chaining */
+  Value key;
+  Value val;
+  char keytt;  /* type of `key' */
+  char valtt;  /* type of `val' */
+  short next;  /* index+1 of the next node in the chain, 0 for none */
 } Node;
 
 typedef struct Hash {
@@ -185,6 +188,7 @@ typedef struct CallInfo {
 
 
 extern const TObject luaO_nilobject;
+extern const Node luaO_nilnode;
 extern const char *const luaO_typenames[];
 
 
@@ -194,6 +198,7 @@ extern const char *const luaO_typenames[];
 lint32 luaO_power2 (lint32 n);
 char *luaO_openspace (lua_State *L, size_t n);
 
+int luaO_equalValue (const TObject *t1, int tt2, const Value *v2);
 int luaO_equalObj (const TObject *t1, const TObject *t2);
 int luaO_str2d (const char *s, Number *result);
 

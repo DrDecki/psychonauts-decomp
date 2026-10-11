@@ -1,5 +1,6 @@
 /*
 ** $Id: lopcodes.h,v 1.68 2000/10/24 16:05:59 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Opcodes for Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -146,11 +147,17 @@ OP_FORLOOP,/*	J							*/
 OP_LFORPREP,/*	J							*/
 OP_LFORLOOP,/*	J							*/
 
-OP_CLOSURE/*	A B	v_b-v_1		closure(KPROTO[a], v_1-v_b)	*/
+OP_CLOSURE,/*	A B	v_b-v_1		closure(KPROTO[a], v_1-v_b)	*/
+
+/* Psychonauts: arguments too big for 5 bits come in an instruction before */
+OP_EXTARG,/*	U	-	-		(extra argument for the next instruction) */
+OP_EXTARGS,/*	S	-	-		(signed extra argument)		*/
+OP_CALLX,/*	B	v_n-v_x(at ext)	r_b-r_1		f(v1,...,v_x)	*/
+OP_CLOSUREX/*	U	v_u-v_1		closure(KPROTO[ext], v_1-v_u)	*/
 
 } OpCode;
 
-#define NUM_OPCODES	((int)OP_CLOSURE+1)
+#define NUM_OPCODES	((int)OP_CLOSUREX+1)
 
 
 #define ISJUMP(o)	(OP_JMPNE <= (o) && (o) <= OP_JMP)

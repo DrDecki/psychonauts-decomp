@@ -1,5 +1,6 @@
 /*
 ** $Id: lstate.c,v 1.48 2000/10/30 16:29:59 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -98,23 +99,30 @@ LUA_API lua_State *lua_open (int stacksize) {
 
 
 LUA_API void lua_close (lua_State *L) {
+  lint32 size;
   LUA_ASSERT(L != lua_state || lua_gettop(L) == 0, "garbage in C stack");
   luaC_collect(L, 1);  /* collect all elements */
   LUA_ASSERT(L->rootproto == NULL, "list should be empty");
   LUA_ASSERT(L->rootcl == NULL, "list should be empty");
   LUA_ASSERT(L->roottable == NULL, "list should be empty");
   luaS_freeall(L);
-  if (L->stack)
-    L->nblocks -= (L->stack_last - L->stack + 1)*sizeof(TObject);
+  if (L->stack) {
+    size = (L->stack_last - L->stack + 1)*sizeof(TObject);
+    L->nblocks -= size;
+  }
+  else size = 0;
   luaM_free(L, L->stack);
-  L->nblocks -= (L->last_tag+1)*sizeof(struct TM);
+  size = (L->last_tag+1)*sizeof(struct TM);
+  L->nblocks -= size;
   luaM_free(L, L->TMtable);
-  L->nblocks -= (L->refSize)*sizeof(struct Ref);
+  size = (L->refSize)*sizeof(struct Ref);
+  L->nblocks -= size;
   luaM_free(L, L->refArray);
-  L->nblocks -= (L->Mbuffsize)*sizeof(char);
+  size = (L->Mbuffsize)*sizeof(char);
+  L->nblocks -= size;
   luaM_free(L, L->Mbuffer);
   LUA_ASSERT(L->nblocks == sizeof(lua_State), "wrong count for nblocks");
-  luaM_free(L, L);
+  luaM_freesize(L, L, sizeof(lua_State));
   LUA_ASSERT(L != lua_state || memdebug_numblocks == 0, "memory leak!");
   LUA_ASSERT(L != lua_state || memdebug_total == 0,"memory leak!");
 }

@@ -20,6 +20,8 @@ void *luaM_growaux (lua_State *L, void *block, size_t nelems,
                     size_t limit, lint32 oldsize);
 
 #define luaM_free(L, b)		luaM_realloc(L, (b), 0, -1)
+#define luaM_freesize(L, b, s)	luaM_realloc(L, (b), 0, (s))
+#define luaM_freevector(L, b, n, t)	luaM_realloc(L, (b), 0, (n)*(lint32)sizeof(t))
 #define luaM_malloc(L, t)	luaM_realloc(L, NULL, (t), 0)
 #define luaM_new(L, t)          ((t *)luaM_malloc(L, sizeof(t)))
 #define luaM_newvector(L, n,t)  ((t *)luaM_malloc(L, (n)*(lint32)sizeof(t)))

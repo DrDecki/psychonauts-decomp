@@ -1,5 +1,6 @@
 /*
 ** $Id: lfunc.c,v 1.34 2000/10/30 12:20:29 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Auxiliary functions to manipulate prototypes and closures
 ** See Copyright Notice in lua.h
 */
@@ -73,15 +74,25 @@ void luaF_protook (lua_State *L, Proto *f, int pc) {
 
 
 void luaF_freeproto (lua_State *L, Proto *f) {
-  if (f->ncode > 0)  /* function was properly created? */
+  if (f->ncode > 0) {  /* function was properly created? */
     L->nblocks -= protosize(f);
-  luaM_free(L, f->code);
-  luaM_free(L, f->locvars);
-  luaM_free(L, f->kstr);
-  luaM_free(L, f->knum);
-  luaM_free(L, f->kproto);
-  luaM_free(L, f->lineinfo);
-  luaM_free(L, f);
+    luaM_freevector(L, f->code, f->ncode, Instruction);
+    luaM_freevector(L, f->locvars, f->nlocvars, LocVar);
+    luaM_freevector(L, f->kstr, f->nkstr, TString *);
+    luaM_freevector(L, f->knum, f->nknum, Number);
+    luaM_freevector(L, f->kproto, f->nkproto, Proto *);
+    luaM_freevector(L, f->lineinfo, f->nlineinfo, int);
+    luaM_freesize(L, f, sizeof(Proto));
+  }
+  else {
+    luaM_free(L, f->code);
+    luaM_free(L, f->locvars);
+    luaM_free(L, f->kstr);
+    luaM_free(L, f->knum);
+    luaM_free(L, f->kproto);
+    luaM_free(L, f->lineinfo);
+    luaM_free(L, f);
+  }
 }
 
 

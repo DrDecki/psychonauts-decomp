@@ -1,5 +1,6 @@
 /*
 ** $Id: lcode.c,v 1.51 2000/09/29 12:42:13 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -134,7 +135,8 @@ void luaK_adjuststack (FuncState *fs, int n) {
 int luaK_lastisopen (FuncState *fs) {
   /* check whether last instruction is an open function call */
   Instruction i = previous_instruction(fs);
-  if (GET_OPCODE(i) == OP_CALL && GETARG_B(i) == MULT_RET)
+  OpCode op = GET_OPCODE(i);
+  if ((op == OP_CALL || op == OP_CALLX) && GETARG_B(i) == MULT_RET)
     return 1;
   else return 0;
 }

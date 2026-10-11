@@ -1,7 +1,7 @@
 # Psychonauts
 
 ![Lua scripts](https://img.shields.io/badge/Lua%20scripts-100%25-brightgreen)
-![Engine](https://img.shields.io/badge/Engine-3.95%25%20(432%2F10930)-red)
+![Engine](https://img.shields.io/badge/Engine-4.52%25%20(494%2F10930)-red)
 
 A work-in-progress decompilation of Psychonauts (2005, PC).
 
@@ -17,7 +17,7 @@ This repository does **not** contain any game assets or game code. You need your
 | Part | Matching | Notes |
 | --- | --- | --- |
 | Lua scripts | 106607 / 106607 functions (100 %) | 9955 bytecode chunks from `.lub`, `.lpf`, `.ppf` and `.pkg` files |
-| Engine | 432 / 10930 functions (3.95 %) | Lua 4.0 runtime in `src/lua`, everything else not started |
+| Engine | 494 / 10930 functions (4.52 %) | Lua 4.0 runtime in `src/lua` (494 of its 507 functions), everything else not started |
 
 "Matching" means the decompiled function, compiled again, gives byte for byte the same code as the original. For the scripts that is Lua bytecode, for the engine x86 machine code. The tools check this for every single function, so the numbers above are not estimates.
 
@@ -168,9 +168,19 @@ Changes found so far:
 - `luaM_realloc` takes the old size of the block as a fourth argument, `-1` when it isn't known
 - `lua_State` has two more fields after `Mbuffsize`, not clear yet what they are
 - No stack size clamping, `MAXSTACK` is 250 and `LFIELDS_PER_FLUSH` 31
-- The I/O library doesn't use `errno`, errors are always "generic I/O error". Reading numbers uses `fscanf("%lf")` into a `float`, a real bug in the game that is kept as is.
-- Table nodes are 12 bytes instead of 20: both values, then the two type tags as bytes, then the index of the next node as a `short`. Not done yet.
-- There are two more value types, `LUA_TCLASS` and `LUA_TLSO`. Not done yet.
+- The I/O library is compiled with `OLD_ANSI`, so no locale and no `errno`, errors are always "generic I/O error". Reading numbers uses `fscanf("%lf")` into a `float`, a real bug in the game that is kept as is.
+- Table nodes are 12 bytes instead of 20: both values, then the two type tags as bytes, then the index+1 of the next node as a `short`. The table functions hand out `Node *` instead of `TObject *`, and an empty `luaO_nilnode` sits next to `luaO_nilobject`. Tables are limited to 32765 nodes.
+- `luaV_gettable` and `luaV_getglobal` write their result into a stack slot instead of returning a pointer
+- Numbers compare equal if their bits are equal, before the float compare
+- Three new opcodes in the VM: `OP_EXTARG`/`OP_EXTARGS` keep an argument for the next instruction, `OP_CALLX` and `OP_CLOSUREX` use it
+- Two hooks into the garbage collector, so the engine can mark the stacks of its other Lua states and gets called before and after every collection
+- Some frees pass the real size of the block (`luaM_freesize`, `luaM_freevector`)
+- The names `LUA_TCLASS` and `LUA_TLSO` show up as strings in the executable, but nothing in the runtime uses them so far. Probably engine side.
+
+Two things about the compiler that took a while to figure out:
+
+- Static functions are not placed where they are in the source, but right after the first function that uses them. So the order of functions in the executable looks shuffled even when the source order is the same.
+- The stack slots of local variables depend on their names. The compiler keeps locals in a hash table and lays them out bucket by bucket, so renaming a variable can move it. Since the real names are lost, the reconstructed code uses names that land in the right slots.
 
 The rest of the engine will follow the usual setup for MSVC games: a Ghidra project to map out the functions, then decompiled C++ compiled with the original compiler and compared function by function, similar to how [isledecomp](https://github.com/isledecomp/isle) does it with `reccmp`.
 

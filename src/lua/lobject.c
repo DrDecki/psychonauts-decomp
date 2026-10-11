@@ -20,6 +20,7 @@
 
 
 const TObject luaO_nilobject = {LUA_TNIL, {NULL}};
+const Node luaO_nilnode = {{NULL}, {NULL}, LUA_TNIL, LUA_TNIL, 0};
 
 
 const char *const luaO_typenames[] = {
@@ -38,11 +39,37 @@ lint32 luaO_power2 (lint32 n) {
 }
 
 
+/*
+** numbers are first compared bit by bit, so that equal numbers always match
+*/
+#define rawnumber(n)	(*(const int *)&(n))
+
+int luaO_equalValue (const TObject *t1, int tt2, const Value *v2) {
+  if (ttype(t1) != tt2) return 0;
+  switch (ttype(t1)) {
+    case LUA_TNUMBER:
+      if (rawnumber(nvalue(t1)) != 0 && rawnumber(v2->n) == 0) return 0;
+      return (rawnumber(nvalue(t1)) == rawnumber(v2->n) || nvalue(t1) == v2->n);
+    case LUA_TSTRING: case LUA_TUSERDATA:
+      return tsvalue(t1) == v2->ts;
+    case LUA_TTABLE: 
+      return hvalue(t1) == v2->a;
+    case LUA_TFUNCTION:
+      return clvalue(t1) == v2->cl;
+    default:
+      LUA_ASSERT(ttype(t1) == LUA_TNIL, "invalid type");
+      return 1; /* LUA_TNIL */
+  }
+}
+
+
 int luaO_equalObj (const TObject *t1, const TObject *t2) {
   if (ttype(t1) != ttype(t2)) return 0;
   switch (ttype(t1)) {
     case LUA_TNUMBER:
-      return nvalue(t1) == nvalue(t2);
+      if (rawnumber(nvalue(t1)) != 0 && rawnumber(nvalue(t2)) == 0) return 0;
+      return (rawnumber(nvalue(t1)) == rawnumber(nvalue(t2)) ||
+              nvalue(t1) == nvalue(t2));
     case LUA_TSTRING: case LUA_TUSERDATA:
       return tsvalue(t1) == tsvalue(t2);
     case LUA_TTABLE: 

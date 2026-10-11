@@ -140,10 +140,10 @@ static int math_ldexp (lua_State *L) {
 
 static int math_min (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
-  double dmin = luaL_check_number(L, 1);
+  float dmin = luaL_check_number(L, 1);
   int i;
   for (i=2; i<=n; i++) {
-    double d = luaL_check_number(L, i);
+    float d = luaL_check_number(L, i);
     if (d < dmin)
       dmin = d;
   }
@@ -154,10 +154,10 @@ static int math_min (lua_State *L) {
 
 static int math_max (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
-  double dmax = luaL_check_number(L, 1);
+  float dmax = luaL_check_number(L, 1);
   int i;
   for (i=2; i<=n; i++) {
-    double d = luaL_check_number(L, i);
+    float d = luaL_check_number(L, i);
     if (d > dmax)
       dmax = d;
   }
@@ -169,7 +169,7 @@ static int math_max (lua_State *L) {
 static int math_random (lua_State *L) {
   /* the '%' avoids the (rare) case of r==1, and is needed also because on
      some systems (SunOS!) "rand()" may return a value larger than RAND_MAX */
-  double r = (double)(rand()%RAND_MAX) / (double)RAND_MAX;
+  float r = (float)(rand()%RAND_MAX) / (float)RAND_MAX;
   switch (lua_gettop(L)) {  /* check number of arguments */
     case 0: {  /* no arguments */
       lua_pushnumber(L, r);  /* Number between 0 and 1 */

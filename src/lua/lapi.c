@@ -265,7 +265,7 @@ LUA_API void lua_pushusertag (lua_State *L, void *u, int tag) {
 
 LUA_API void lua_getglobal (lua_State *L, const char *name) {
   StkId top = L->top;
-  *top = *luaV_getglobal(L, luaS_new(L, name));
+  luaV_getglobal(top, L, luaS_new(L, name));
   L->top = top;
   api_incr_top(L);
 }
@@ -274,22 +274,26 @@ LUA_API void lua_getglobal (lua_State *L, const char *name) {
 LUA_API void lua_gettable (lua_State *L, int index) {
   StkId t = Index(L, index);
   StkId top = L->top;
-  *(top-1) = *luaV_gettable(L, t);
+  luaV_gettable(top-1, L, t);
   L->top = top;  /* tag method may change top */
 }
 
 
 LUA_API void lua_rawget (lua_State *L, int index) {
   StkId t = Index(L, index);
+  const Node *node;
   LUA_ASSERT(ttype(t) == LUA_TTABLE, "table expected");
-  *(L->top - 1) = *luaH_get(L, hvalue(t), L->top - 1);
+  node = luaH_get(L, hvalue(t), L->top - 1);
+  getnodeval(L->top - 1, node);
 }
 
 
 LUA_API void lua_rawgeti (lua_State *L, int index, int n) {
   StkId o = Index(L, index);
+  const Node *node;
   LUA_ASSERT(ttype(o) == LUA_TTABLE, "table expected");
-  *L->top = *luaH_getnum(hvalue(o), n);
+  node = luaH_getnum(hvalue(o), n);
+  getnodeval(L->top, node);
   api_incr_top(L);
 }
 
@@ -344,16 +348,20 @@ LUA_API void lua_settable (lua_State *L, int index) {
 
 LUA_API void lua_rawset (lua_State *L, int index) {
   StkId t = Index(L, index);
+  Node *node;
   LUA_ASSERT(ttype(t) == LUA_TTABLE, "table expected");
-  *luaH_set(L, hvalue(t), L->top-2) = *(L->top-1);
+  node = luaH_set(L, hvalue(t), L->top-2);
+  setnodeval(node, L->top-1);
   L->top -= 2;
 }
 
 
 LUA_API void lua_rawseti (lua_State *L, int index, int n) {
   StkId o = Index(L, index);
+  Node *node;
   LUA_ASSERT(ttype(o) == LUA_TTABLE, "table expected");
-  *luaH_setint(L, hvalue(o), n) = *(L->top-1);
+  node = luaH_setint(L, hvalue(o), n);
+  setnodeval(node, L->top-1);
   L->top--;
 }
 
@@ -458,8 +466,8 @@ LUA_API int lua_next (lua_State *L, int index) {
   LUA_ASSERT(ttype(t) == LUA_TTABLE, "table expected");
   n = luaH_next(L, hvalue(t), luaA_index(L, -1));
   if (n) {
-    *(L->top-1) = *key(n);
-    *L->top = *val(n);
+    getnodekey(L->top-1, n);
+    getnodeval(L->top, n);
     api_incr_top(L);
     return 1;
   }
@@ -472,18 +480,18 @@ LUA_API int lua_next (lua_State *L, int index) {
 
 LUA_API int lua_getn (lua_State *L, int index) {
   Hash *h = hvalue(luaA_index(L, index));
-  const TObject *value = luaH_getstr(h, luaS_new(L, "n"));  /* value = h.n */
-  if (ttype(value) == LUA_TNUMBER)
-    return (int)nvalue(value);
+  const Node *nkey = luaH_getstr(h, luaS_new(L, "n"));  /* nkey = h.n */
+  if (nkey->valtt == LUA_TNUMBER)
+    return (int)nkey->val.n;
   else {
     Number max = 0;
     int i = h->size;
     Node *n = h->node;
     while (i--) {
-      if (ttype(key(n)) == LUA_TNUMBER &&
-          ttype(val(n)) != LUA_TNIL &&
-          nvalue(key(n)) > max)
-        max = nvalue(key(n));
+      if (n->keytt == LUA_TNUMBER &&
+          n->valtt != LUA_TNIL &&
+          n->key.n > max)
+        max = n->key.n;
       n++;
     }
     return (int)max;
@@ -505,5 +513,15 @@ LUA_API void *lua_newuserdata (lua_State *L, size_t size) {
   ttype(L->top) = LUA_TUSERDATA;
   api_incr_top(L);
   return ts->u.d.value;
+}
+
+
+LUA_API void lua_setgcmarkhook (lua_GCMarkHook hook) {
+  luaC_markhook = hook;
+}
+
+
+LUA_API void lua_setgchook (lua_GCHook hook) {
+  luaC_gchook = hook;
 }
 

@@ -58,6 +58,7 @@ typedef unsigned long lint32;  /* unsigned int with at least 32 bits */
 
 
 #define MAX_INT (INT_MAX-2)  /* maximum value of an int (-2 for safety) */
+#define MAX_SHORT (SHRT_MAX-2)  /* maximum value of a short (-2 for safety) */
 
 /*
 ** conversion of pointer to int (for hashing only)

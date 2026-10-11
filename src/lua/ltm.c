@@ -1,5 +1,6 @@
 /*
 ** $Id: ltm.c,v 1.56 2000/10/31 13:10:24 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -116,13 +117,17 @@ LUA_API int lua_copytagmethods (lua_State *L, int tagto, int tagfrom) {
 }
 
 
-int luaT_tag (const TObject *o) {
-  int t = ttype(o);
+int luaT_tagvalue (int t, const Value *v) {
   switch (t) {
-    case LUA_TUSERDATA: return tsvalue(o)->u.d.tag;
-    case LUA_TTABLE:    return hvalue(o)->htag;
+    case LUA_TUSERDATA: return v->ts->u.d.tag;
+    case LUA_TTABLE:    return v->a->htag;
     default:            return t;
   }
+}
+
+
+int luaT_tag (const TObject *o) {
+  return luaT_tagvalue(ttype(o), &o->value);
 }
 
 

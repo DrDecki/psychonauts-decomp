@@ -1,5 +1,6 @@
 /*
 ** $Id: lvm.c,v 1.146 2000/10/26 12:47:05 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -115,17 +116,19 @@ void luaV_Lclosure (lua_State *L, Proto *l, int nelems) {
 ** Function to index a table.
 ** Receives the table at `t' and the key at top.
 */
-const TObject *luaV_gettable (lua_State *L, StkId t) {
+void luaV_gettable (StkId res, lua_State *L, StkId t) {
   Closure *tm;
   int tg;
   if (ttype(t) == LUA_TTABLE &&  /* `t' is a table? */
       ((tg = hvalue(t)->htag) == LUA_TTABLE ||  /* with default tag? */
         luaT_gettm(L, tg, TM_GETTABLE) == NULL)) { /* or no TM? */
     /* do a primitive get */
-    const TObject *h = luaH_get(L, hvalue(t), L->top-1);
+    const Node *h = luaH_get(L, hvalue(t), L->top-1);
     /* result is no nil or there is no `index' tag method? */
-    if (ttype(h) != LUA_TNIL || ((tm=luaT_gettm(L, tg, TM_INDEX)) == NULL))
-      return h;  /* return result */
+    if (h->valtt != LUA_TNIL || ((tm=luaT_gettm(L, tg, TM_INDEX)) == NULL)) {
+      getnodeval(res, h);  /* return result */
+      return;
+    }
     /* else call `index' tag method */
   }
   else {  /* try a `gettable' tag method */
@@ -139,12 +142,11 @@ const TObject *luaV_gettable (lua_State *L, StkId t) {
     ttype(L->top-1) = LUA_TFUNCTION;
     L->top += 2;
     luaD_call(L, L->top - 3, 1);
-    return L->top - 1;  /* call result */
+    *res = *(L->top - 1);  /* call result */
+    return;
   }
-  else {  /* no tag method */
+  else  /* no tag method */
     luaG_typeerror(L, t, "index");
-    return NULL;  /* to avoid warnings */
-  }
 }
 
 
@@ -155,8 +157,10 @@ void luaV_settable (lua_State *L, StkId t, StkId key) {
   int tg;
   if (ttype(t) == LUA_TTABLE &&  /* `t' is a table? */
       ((tg = hvalue(t)->htag) == LUA_TTABLE ||  /* with default tag? */
-        luaT_gettm(L, tg, TM_SETTABLE) == NULL)) /* or no TM? */
-    *luaH_set(L, hvalue(t), key) = *(L->top-1);  /* do a primitive set */
+        luaT_gettm(L, tg, TM_SETTABLE) == NULL)) { /* or no TM? */
+    Node *node = luaH_set(L, hvalue(t), key);  /* do a primitive set */
+    setnodeval(node, L->top-1);
+  }
   else {  /* try a `settable' tag method */
     Closure *tm = luaT_gettmbyObj(L, t, TM_SETTABLE);
     if (tm != NULL) {
@@ -175,44 +179,48 @@ void luaV_settable (lua_State *L, StkId t, StkId key) {
 }
 
 
-const TObject *luaV_getglobal (lua_State *L, TString *s) {
-  const TObject *value = luaH_getstr(L->gt, s);
-  Closure *tm = luaT_gettmbyObj(L, value, TM_GETGLOBAL);
-  if (tm == NULL)  /* is there a tag method? */
-    return value;  /* default behavior */
+void luaV_getglobal (StkId res, lua_State *L, TString *s) {
+  const Node *node = luaH_getstr(L->gt, s);
+  Closure *tm = luaT_gettmbyNode(L, node, TM_GETGLOBAL);
+  if (tm == NULL) {  /* is there a tag method? */
+    getnodeval(res, node);  /* default behavior */
+    return;
+  }
   else {  /* tag method */
     luaD_checkstack(L, 3);
     clvalue(L->top) = tm;
     ttype(L->top) = LUA_TFUNCTION;
     tsvalue(L->top+1) = s;  /* global name */
     ttype(L->top+1) = LUA_TSTRING;
-    *(L->top+2) = *value;
+    getnodeval(L->top+2, node);
     L->top += 3;
     luaD_call(L, L->top - 3, 1);
-    return L->top - 1;
+    *res = *(L->top - 1);
   }
 }
 
 
 void luaV_setglobal (lua_State *L, TString *s) {
-  const TObject *oldvalue = luaH_getstr(L->gt, s);
-  Closure *tm = luaT_gettmbyObj(L, oldvalue, TM_SETGLOBAL);
+  const Node *oldvalue = luaH_getstr(L->gt, s);
+  Closure *tm = luaT_gettmbyNode(L, oldvalue, TM_SETGLOBAL);
   if (tm == NULL) {  /* is there a tag method? */
-    if (oldvalue != &luaO_nilobject) {
-      /* cast to remove `const' is OK, because `oldvalue' != luaO_nilobject */
-      *(TObject *)oldvalue = *(L->top - 1);
+    if (oldvalue != &luaO_nilnode) {
+      /* cast to remove `const' is OK, because `oldvalue' != luaO_nilnode */
+      setnodeval((Node *)oldvalue, L->top - 1);
     }
     else {
       TObject key;
+      Node *node;
       ttype(&key) = LUA_TSTRING;
       tsvalue(&key) = s;
-      *luaH_set(L, L->gt, &key) = *(L->top - 1);
+      node = luaH_set(L, L->gt, &key);
+      setnodeval(node, L->top - 1);
     }
   }
   else {
     luaD_checkstack(L, 3);
     *(L->top+2) = *(L->top-1);  /* new value */
-    *(L->top+1) = *oldvalue;
+    getnodeval(L->top+1, oldvalue);
     ttype(L->top) = LUA_TSTRING;
     tsvalue(L->top) = s;
     clvalue(L->top-1) = tm;
@@ -322,8 +330,10 @@ void luaV_strconc (lua_State *L, int total, StkId top) {
 static void luaV_pack (lua_State *L, StkId firstelem) {
   int i;
   Hash *htab = luaH_new(L, 0);
-  for (i=0; firstelem+i<L->top; i++)
-    *luaH_setint(L, htab, i+1) = *(firstelem+i);
+  for (i=0; firstelem+i<L->top; i++) {
+    Node *node = luaH_setint(L, htab, i+1);
+    setnodeval(node, firstelem+i);
+  }
   /* store counter in field `n' */
   luaH_setstrnum(L, htab, luaS_new(L, "n"), i);
   L->top = firstelem;  /* remove elements from the stack */
@@ -342,6 +352,9 @@ static void adjust_varargs (lua_State *L, StkId base, int nfixargs) {
 
 
 
+#define NO_EXTARG	INT_MAX
+
+
 #define dojump(pc, i)	{ int d = GETARG_S(i); pc += d; }
 
 /*
@@ -354,6 +367,7 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
   const Instruction *pc = tf->code;
   TString **const kstr = tf->kstr;
   const lua_Hook linehook = L->linehook;
+  int extraarg = NO_EXTARG;  /* argument from the last OP_EXTARG */
   infovalue(base-1)->pc = &pc;
   luaD_checkstack(L, tf->maxstacksize+EXTRA_STACK);
   if (tf->is_vararg)  /* varargs? */
@@ -434,27 +448,27 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
       }
       case OP_GETGLOBAL: {
         L->top = top;
-        *top = *luaV_getglobal(L, kstr[GETARG_U(i)]);
+        luaV_getglobal(top, L, kstr[GETARG_U(i)]);
         top++;
         break;
       }
       case OP_GETTABLE: {
         L->top = top;
         top--;
-        *(top-1) = *luaV_gettable(L, top-1);
+        luaV_gettable(top-1, L, top-1);
         break;
       }
       case OP_GETDOTTED: {
         ttype(top) = LUA_TSTRING;
         tsvalue(top) = kstr[GETARG_U(i)];
         L->top = top+1;
-        *(top-1) = *luaV_gettable(L, top-1);
+        luaV_gettable(top-1, L, top-1);
         break;
       }
       case OP_GETINDEXED: {
         *top = *(base+GETARG_U(i));
         L->top = top+1;
-        *(top-1) = *luaV_gettable(L, top-1);
+        luaV_gettable(top-1, L, top-1);
         break;
       }
       case OP_PUSHSELF: {
@@ -463,7 +477,7 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
         ttype(top) = LUA_TSTRING;
         tsvalue(top++) = kstr[GETARG_U(i)];
         L->top = top;
-        *(top-2) = *luaV_gettable(L, top-2);
+        luaV_gettable(top-2, L, top-2);
         *(top-1) = receiver;
         break;
       }
@@ -497,8 +511,10 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
         int n = GETARG_B(i);
         Hash *arr = hvalue(top-n-1);
         L->top = top-n;  /* final value of `top' (in case of errors) */
-        for (; n; n--)
-          *luaH_setint(L, arr, n+aux) = *(--top);
+        for (; n; n--) {
+          Node *node = luaH_setint(L, arr, n+aux);
+          setnodeval(node, --top);
+        }
         break;
       }
       case OP_SETMAP: {
@@ -507,8 +523,10 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
         Hash *arr = hvalue(finaltop-1);
         L->top = finaltop;  /* final value of `top' (in case of errors) */
         for (; n; n--) {
+          Node *node;
           top-=2;
-          *luaH_set(L, arr, top) = *(top+1);
+          node = luaH_set(L, arr, top);
+          setnodeval(node, top+1);
         }
         break;
       }
@@ -680,8 +698,8 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
         }
         else {
           top += 2;  /* index,value */
-          *(top-2) = *key(node);
-          *(top-1) = *val(node);
+          getnodekey(top-2, node);
+          getnodeval(top-1, node);
         }
         break;
       }
@@ -692,8 +710,8 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
         if (node == NULL)  /* end loop? */
           top -= 3;  /* remove table, key, and value */
         else {
-          *(top-2) = *key(node);
-          *(top-1) = *val(node);
+          getnodekey(top-2, node);
+          getnodeval(top-1, node);
           dojump(pc, i);  /* repeat loop */
         }
         break;
@@ -703,6 +721,30 @@ StkId luaV_execute (lua_State *L, const Closure *cl, StkId base) {
         luaV_Lclosure(L, tf->kproto[GETARG_A(i)], GETARG_B(i));
         top = L->top;
         luaC_checkGC(L);
+        break;
+      }
+      case OP_EXTARG: {
+        extraarg = GETARG_U(i);
+        break;
+      }
+      case OP_EXTARGS: {
+        extraarg = GETARG_S(i);
+        break;
+      }
+      case OP_CLOSUREX: {
+        L->top = top;
+        luaV_Lclosure(L, tf->kproto[extraarg], GETARG_U(i));
+        top = L->top;
+        extraarg = NO_EXTARG;
+        break;
+      }
+      case OP_CALLX: {
+        int nres = GETARG_B(i);
+        if (nres == MULT_RET) nres = LUA_MULTRET;
+        L->top = top;
+        luaD_call(L, base+extraarg, nres);
+        top = L->top;
+        extraarg = NO_EXTARG;
         break;
       }
     }
