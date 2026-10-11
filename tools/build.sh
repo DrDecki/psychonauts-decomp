@@ -27,5 +27,5 @@ for dir in "$ROOT"/src/*/; do
     rm -rf "$ROOT/build/$name"
     mkdir -p "$ROOT/build/$name"
     cd "$ROOT/build/$name"
-    $RUN "$VC/bin/cl.exe" $CFLAGS /I"$INCLUDE" ../../src/"$name"/*.c | grep -v '\.c\s*$' || true
+    $RUN "$VC/bin/cl.exe" $CFLAGS /I"$INCLUDE" ../../src/"$name"/*.c | grep -vE '^(Compiling|Generating Code)|\.c\s*$' || true
 done

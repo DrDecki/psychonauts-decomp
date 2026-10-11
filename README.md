@@ -1,7 +1,7 @@
 # Psychonauts
 
 ![Lua scripts](https://img.shields.io/badge/Lua%20scripts-100%25-brightgreen)
-![Engine](https://img.shields.io/badge/Engine-4%25%20(432%2F10930)-red)
+![Engine](https://img.shields.io/badge/Engine-3.95%25%20(432%2F10930)-red)
 
 A work-in-progress decompilation of Psychonauts (2005, PC).
 
