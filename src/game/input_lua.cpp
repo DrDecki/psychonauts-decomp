@@ -1,14 +1,42 @@
 // Script functions, file name made up.
-// Only the wrappers are decompiled so far, the bodies are still missing.
 
+#include "engine.h"
 #include "luafunc.h"
 
+extern bool g_rumbleEnabled;
 
-LUA_FUNCTION_TODO(SetDeadZone)
 
-LUA_FUNCTION_TODO(GetDeadZone)
+LUA_FUNCTION(SetDeadZone)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    float zone = GetNumberArg(L, 1, false);
+    return 0;
+}
 
-LUA_FUNCTION_TODO(EnableRumble)
+LUA_FUNCTION(GetDeadZone)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 0, 0))
+        return 0;
+    float zone = 0.0f;
+    lua_pushnumber(L, zone);
+    return 1;
+}
+
+LUA_FUNCTION(EnableRumble)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    bool enable = GetNumberArg(L, 1, false) != 0;
+    if (enable)
+        g_rumbleEnabled = true;
+    else
+        g_rumbleEnabled = false;
+    return 0;
+}
 
 LUA_FUNCTION_TODO(RumbleSpeed)
 

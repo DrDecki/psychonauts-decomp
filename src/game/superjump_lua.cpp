@@ -1,7 +1,13 @@
 // Script functions, file name made up.
-// Only the wrappers are decompiled so far, the bodies are still missing.
 
+#include "engine.h"
 #include "luafunc.h"
 
+extern bool g_superJump;
 
-LUA_FUNCTION_TODO(ToggleSuperJump)
+
+LUA_FUNCTION(ToggleSuperJump)
+{
+    g_superJump = !g_superJump;
+    return 0;
+}

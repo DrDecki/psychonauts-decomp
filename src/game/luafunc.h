@@ -15,6 +15,7 @@ class ELuaFunction
 {
 public:
     ELuaFunction(lua_CFunction func, const char *name);
+    static void RegisterAll(lua_State *L);
 
     lua_CFunction m_func;
     const char *m_name;
@@ -71,3 +72,32 @@ extern bool g_onLuaStack;
     static ELuaFunction name##_reg(name, #name);
 
 #endif
+
+class EScriptObject;
+const char *LuaCallSite(lua_State *L);
+bool CheckArgs(lua_State *L, int min, int max);
+const char *LuaOwnerName(lua_State *L);
+EScriptObject *GetScriptObjectById(lua_State *L, int id);
+EScriptObject *GetScriptObjectArg(lua_State *L, int idx, bool optional, bool quiet);
+class EEntity;
+class EClassInfo;
+class ETriggerBase;
+struct Vector3;
+struct Color;
+Vector3 GetVectorArg(lua_State *L, int idx);
+bool CallLuaMethod(lua_State *L, int idx, const char *method, int nargs, const float *args, int nresults, float *results);
+bool GetObjectPosition(lua_State *L, int idx, Vector3 *out);
+bool GetObjectOrientation(lua_State *L, int idx, Vector3 *out);
+EEntity *GetEntityArg(lua_State *L, int idx, bool optional, EClassInfo *cls);
+ETriggerBase *GetTriggerArg(lua_State *L, int idx, bool optional);
+void *GetTriggerA8Arg(lua_State *L, int idx, bool optional);
+float GetNumberArg(lua_State *L, int idx, bool optional);
+const char *GetStringArg(lua_State *L, int idx, bool optional);
+Color GetColorArg(lua_State *L, int idx, bool optional);
+void PushVector(lua_State *L, const Vector3 &v);
+void SetGlobalVector(lua_State *L, const Vector3 &v, const char *name);
+bool PushEntity(lua_State *L, EEntity *ent, bool raw);
+bool PushScriptObject(lua_State *L, EScriptObject *o);
+void *GetResourceArg(lua_State *L, int idx);
+bool GetTableField(lua_State *L, const char *key, int idx);
+void PushColor(lua_State *L, const Color &c);

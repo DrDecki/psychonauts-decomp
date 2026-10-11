@@ -309,16 +309,3 @@ LUA_FUNCTION_TODO(GetCollectedFigmentCount)
 LUA_FUNCTION_TODO(IsExitFromJournal)
 
 LUA_FUNCTION_TODO(GetLanguage)
-
-
-ELuaFunction *ELuaFunction::s_first;
-int ELuaFunction::s_count;
-
-ELuaFunction::ELuaFunction(lua_CFunction func, const char *name)
-{
-    m_func = func;
-    m_name = name;
-    m_next = s_first;
-    s_first = this;
-    s_count++;
-}
