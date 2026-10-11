@@ -1,5 +1,6 @@
 /*
 ** $Id: lbaselib.c,v 1.17 2000/11/06 13:45:18 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -130,7 +131,7 @@ static int luaB_getglobal (lua_State *L) {
 
 static int luaB_tag (lua_State *L) {
   luaL_checkany(L, 1);
-  lua_pushnumber(L, lua_tag(L, 1));
+  lua_pushint(L, lua_tag(L, 1));
   return 1;
 }
 
@@ -142,12 +143,12 @@ static int luaB_settag (lua_State *L) {
 }
 
 static int luaB_newtag (lua_State *L) {
-  lua_pushnumber(L, lua_newtag(L));
+  lua_pushint(L, lua_newtag(L));
   return 1;
 }
 
 static int luaB_copytagmethods (lua_State *L) {
-  lua_pushnumber(L, lua_copytagmethods(L, luaL_check_int(L, 1),
+  lua_pushint(L, lua_copytagmethods(L, luaL_check_int(L, 1),
                                           luaL_check_int(L, 2)));
   return 1;
 }
@@ -202,8 +203,8 @@ static int luaB_gettagmethod (lua_State *L) {
 
 
 static int luaB_gcinfo (lua_State *L) {
-  lua_pushnumber(L, lua_getgccount(L));
-  lua_pushnumber(L, lua_getgcthreshold(L));
+  lua_pushint(L, lua_getgccount(L));
+  lua_pushint(L, lua_getgcthreshold(L));
   return 2;
 }
 
@@ -344,7 +345,7 @@ static int luaB_foreachi (lua_State *L) {
   n = lua_getn(L, 1);
   for (i=1; i<=n; i++) {
     lua_pushvalue(L, 2);  /* function */
-    lua_pushnumber(L, i);  /* 1st argument */
+    lua_pushint(L, i);  /* 1st argument */
     lua_rawgeti(L, 1, i);  /* 2nd argument */
     lua_rawcall(L, 2, 1);
     if (!lua_isnil(L, -1))
@@ -383,7 +384,7 @@ static int luaB_assert (lua_State *L) {
 
 static int luaB_getn (lua_State *L) {
   luaL_checktype(L, 1, LUA_TTABLE);
-  lua_pushnumber(L, lua_getn(L, 1));
+  lua_pushint(L, lua_getn(L, 1));
   return 1;
 }
 
@@ -398,7 +399,7 @@ static int luaB_tinsert (lua_State *L) {
   else
     pos = luaL_check_int(L, 2);  /* 2nd argument is the position */
   lua_pushstring(L, "n");
-  lua_pushnumber(L, n+1);
+  lua_pushint(L, n+1);
   lua_rawset(L, 1);  /* t.n = n+1 */
   for (; n>=pos; n--) {
     lua_rawgeti(L, 1, n);
@@ -422,7 +423,7 @@ static int luaB_tremove (lua_State *L) {
     lua_rawseti(L, 1, pos);  /* a[pos] = a[pos+1] */
   }
   lua_pushstring(L, "n");
-  lua_pushnumber(L, n-1);
+  lua_pushint(L, n-1);
   lua_rawset(L, 1);  /* t.n = n-1 */
   lua_pushnil(L);
   lua_rawseti(L, 1, n);  /* t[n] = nil */

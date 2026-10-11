@@ -1,5 +1,6 @@
 /*
 ** $Id: lua.h,v 1.79 2000/10/31 12:44:07 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Lua - An Extensible Extension Language
 ** TeCGraf: Grupo de Tecnologia em Computacao Grafica, PUC-Rio, Brazil
 ** e-mail: lua@tecgraf.puc-rio.br
@@ -107,7 +108,7 @@ LUA_API int            lua_tag (lua_State *L, int index);
 LUA_API int            lua_equal (lua_State *L, int index1, int index2);
 LUA_API int            lua_lessthan (lua_State *L, int index1, int index2);
 
-LUA_API double         lua_tonumber (lua_State *L, int index);
+LUA_API float          lua_tonumber (lua_State *L, int index);
 LUA_API const char    *lua_tostring (lua_State *L, int index);
 LUA_API size_t         lua_strlen (lua_State *L, int index);
 LUA_API lua_CFunction  lua_tocfunction (lua_State *L, int index);
@@ -119,7 +120,9 @@ LUA_API const void    *lua_topointer (lua_State *L, int index);
 ** push functions (C -> stack)
 */
 LUA_API void  lua_pushnil (lua_State *L);
-LUA_API void  lua_pushnumber (lua_State *L, double n);
+LUA_API void  lua_pushnumber (lua_State *L, float n);
+LUA_API void  lua_pushint (lua_State *L, int n);
+LUA_API void  lua_pushuint (lua_State *L, unsigned int n);
 LUA_API void  lua_pushlstring (lua_State *L, const char *s, size_t len);
 LUA_API void  lua_pushstring (lua_State *L, const char *s);
 LUA_API void  lua_pushcclosure (lua_State *L, lua_CFunction fn, int n);

@@ -1,5 +1,6 @@
 /*
 ** $Id: lobject.c,v 1.55 2000/10/20 16:36:32 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -57,7 +58,7 @@ int luaO_equalObj (const TObject *t1, const TObject *t2) {
 
 char *luaO_openspace (lua_State *L, size_t n) {
   if (n > L->Mbuffsize) {
-    luaM_reallocvector(L, L->Mbuffer, n, char);
+    L->Mbuffer = (char *)luaM_realloc(L, L->Mbuffer, n, L->Mbuffsize);
     L->nblocks += (n - L->Mbuffsize)*sizeof(char);
     L->Mbuffsize = n;
   }

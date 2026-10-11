@@ -1,5 +1,6 @@
 /*
 ** $Id: lmem.c,v 1.39 2000/10/30 16:29:59 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Interface to Memory Manager
 ** See Copyright Notice in lua.h
 */
@@ -117,21 +118,21 @@ static void *debug_realloc (void *block, size_t size) {
 
 
 void *luaM_growaux (lua_State *L, void *block, size_t nelems,
-               int inc, size_t size, const char *errormsg, size_t limit) {
+               int inc, size_t size, const char *errormsg, size_t limit, lint32 oldsize) {
   size_t newn = nelems+inc;
   if (nelems >= limit-inc) lua_error(L, errormsg);
   if ((newn ^ nelems) <= nelems ||  /* still the same power-of-2 limit? */
        (nelems > 0 && newn < MINPOWER2))  /* or block already is MINPOWER2? */
       return block;  /* do not need to reallocate */
   else  /* it crossed a power-of-2 boundary; grow to next power */
-    return luaM_realloc(L, block, luaO_power2(newn)*size);
+    return luaM_realloc(L, block, luaO_power2(newn)*size, oldsize);
 }
 
 
 /*
 ** generic allocation routine.
 */
-void *luaM_realloc (lua_State *L, void *block, lint32 size) {
+void *luaM_realloc (lua_State *L, void *block, lint32 size, lint32 oldsize) {
   if (size == 0) {
     free(block);  /* block may be NULL; that is OK for free */
     return NULL;

@@ -1,5 +1,6 @@
 /*
 ** $Id: lstate.h,v 1.41 2000/10/05 13:00:17 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -53,6 +54,8 @@ struct lua_State {
   struct lua_longjmp *errorJmp;  /* current error recover point */
   char *Mbuffer;  /* global buffer */
   size_t Mbuffsize;  /* size of Mbuffer */
+  void *unknown20;
+  void *unknown24;
   /* global state */
   Proto *rootproto;  /* list of all prototypes */
   Closure *rootcl;  /* list of all closures */

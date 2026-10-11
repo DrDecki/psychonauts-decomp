@@ -1,5 +1,6 @@
 /*
 ** $Id: lmathlib.c,v 1.32 2000/10/31 13:10:24 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -126,7 +127,7 @@ static int math_rad (lua_State *L) {
 static int math_frexp (lua_State *L) {
   int e;
   lua_pushnumber(L, frexp(luaL_check_number(L, 1), &e));
-  lua_pushnumber(L, e);
+  lua_pushint(L, e);
   return 2;
 }
 
@@ -177,14 +178,14 @@ static int math_random (lua_State *L) {
     case 1: {  /* only upper limit */
       int u = luaL_check_int(L, 1);
       luaL_arg_check(L, 1<=u, 1, "interval is empty");
-      lua_pushnumber(L, (int)(r*u)+1);  /* integer between 1 and `u' */
+      lua_pushint(L, (int)(r*u)+1);  /* integer between 1 and `u' */
       break;
     }
     case 2: {  /* lower and upper limits */
       int l = luaL_check_int(L, 1);
       int u = luaL_check_int(L, 2);
       luaL_arg_check(L, l<=u, 2, "interval is empty");
-      lua_pushnumber(L, (int)(r*(u-l+1))+l);  /* integer between `l' and `u' */
+      lua_pushint(L, (int)(r*(u-l+1))+l);  /* integer between `l' and `u' */
       break;
     }
     default: lua_error(L, "wrong number of arguments");

@@ -1,5 +1,6 @@
 /*
 ** $Id: ldblib.c,v 1.29 2000/11/06 17:58:38 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -26,7 +27,7 @@ static void settabss (lua_State *L, const char *i, const char *v) {
 
 static void settabsi (lua_State *L, const char *i, int v) {
   lua_pushstring(L, i);
-  lua_pushnumber(L, v);
+  lua_pushint(L, v);
   lua_settable(L, -3);
 }
 
@@ -137,7 +138,7 @@ static void callf (lua_State *L, lua_Debug *ar) {
 
 
 static void linef (lua_State *L, lua_Debug *ar) {
-  lua_pushnumber(L, ar->currentline);
+  lua_pushint(L, ar->currentline);
   hookf(L, KEY_LINEHOOK);
 }
 

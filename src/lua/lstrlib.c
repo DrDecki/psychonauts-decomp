@@ -1,5 +1,6 @@
 /*
 ** $Id: lstrlib.c,v 1.56 2000/10/27 16:15:53 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -21,7 +22,7 @@
 static int str_len (lua_State *L) {
   size_t l;
   luaL_check_lstr(L, 1, &l);
-  lua_pushnumber(L, l);
+  lua_pushuint(L, l);
   return 1;
 }
 
@@ -413,8 +414,8 @@ static int str_find (lua_State *L) {
       strpbrk(p, SPECIALS) == NULL) {  /* or no special characters? */
     const char *s2 = lmemfind(s+init, l1-init, p, l2);
     if (s2) {
-      lua_pushnumber(L, s2-s+1);
-      lua_pushnumber(L, s2-s+l2);
+      lua_pushint(L, s2-s+1);
+      lua_pushint(L, s2-s+l2);
       return 2;
     }
   }
@@ -426,8 +427,8 @@ static int str_find (lua_State *L) {
       const char *res;
       cap.level = 0;
       if ((res=match(L, s1, p, &cap)) != NULL) {
-        lua_pushnumber(L, s1-s+1);  /* start */
-        lua_pushnumber(L, res-s);   /* end */
+        lua_pushint(L, s1-s+1);  /* start */
+        lua_pushint(L, res-s);   /* end */
         return push_captures(L, &cap) + 2;
       }
     } while (s1++<cap.src_end && !anchor);
@@ -500,7 +501,7 @@ static int str_gsub (lua_State *L) {
   }
   luaL_addlstring(&b, src, cap.src_end-src);
   luaL_pushresult(&b);
-  lua_pushnumber(L, n);  /* number of substitutions */
+  lua_pushint(L, n);  /* number of substitutions */
   return 2;
 }
 

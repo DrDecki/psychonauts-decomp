@@ -1,5 +1,6 @@
 /*
 ** $Id: ldo.c,v 1.109 2000/10/30 12:38:50 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -356,7 +357,6 @@ void luaD_breakrun (lua_State *L, int errcode) {
   else {
     if (errcode != LUA_ERRMEM)
       message(L, "unable to recover; exiting\n");
-    exit(EXIT_FAILURE);
   }
 }
 

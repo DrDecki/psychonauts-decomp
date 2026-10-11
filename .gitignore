@@ -7,3 +7,4 @@ psyluac/psyluac
 *.ppf
 *.pkg
 __pycache__/
+build/

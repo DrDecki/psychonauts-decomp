@@ -1,5 +1,6 @@
 /*
 ** $Id: liolib.c,v 1.91 2000/10/31 13:10:24 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -70,8 +71,8 @@ static int pushresult (lua_State *L, int i) {
   }
   else {
     lua_pushnil(L);
-    lua_pushstring(L, strerror(errno));
-    lua_pushnumber(L, errno);
+    lua_pushstring(L, "generic I/O error");
+    lua_pushint(L, -1);
     return 3;;
   }
 }
@@ -295,7 +296,7 @@ static int read_pattern (lua_State *L, FILE *f, const char *p) {
 
 
 static int read_number (lua_State *L, FILE *f) {
-  double d;
+  float d;
   if (fscanf(f, "%lf", &d) == 1) {
     lua_pushnumber(L, d);
     return 1;
@@ -474,7 +475,7 @@ static int io_seek (lua_State *L) {
   if (op)
     return pushresult(L, 0);  /* error */
   else {
-    lua_pushnumber(L, ftell(f));
+    lua_pushuint(L, ftell(f));
     return 1;
   }
 }

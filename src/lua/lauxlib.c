@@ -1,5 +1,6 @@
 /*
 ** $Id: lauxlib.c,v 1.43 2000/10/30 13:07:48 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -84,15 +85,15 @@ LUALIB_API const char *luaL_opt_lstr (lua_State *L, int narg, const char *def, s
 }
 
 
-LUALIB_API double luaL_check_number (lua_State *L, int narg) {
-  double d = lua_tonumber(L, narg);
+LUALIB_API float luaL_check_number (lua_State *L, int narg) {
+  float d = lua_tonumber(L, narg);
   if (d == 0 && !lua_isnumber(L, narg))  /* avoid extra test when d is not 0 */
     type_error(L, narg, LUA_TNUMBER);
   return d;
 }
 
 
-LUALIB_API double luaL_opt_number (lua_State *L, int narg, double def) {
+LUALIB_API float luaL_opt_number (lua_State *L, int narg, float def) {
   if (lua_isnull(L, narg)) return def;
   else return luaL_check_number(L, narg);
 }

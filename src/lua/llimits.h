@@ -1,5 +1,6 @@
 /*
 ** $Id: llimits.h,v 1.19 2000/10/26 12:47:05 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Limits, basic types, and some other "installation-dependent" definitions
 ** See Copyright Notice in lua.h
 */
@@ -36,7 +37,7 @@
 ** GREP LUA_NUMBER to change that
 */
 #ifndef LUA_NUM_TYPE
-#define LUA_NUM_TYPE double
+#define LUA_NUM_TYPE float
 #endif
 
 typedef LUA_NUM_TYPE Number;
@@ -87,7 +88,7 @@ union L_Umaxalign { double d; char *s; long l; };
 ** For a very small machine, you may change that to 2 bytes (and adjust
 ** the following limits accordingly)
 */
-typedef unsigned long Instruction;
+typedef unsigned short Instruction;
 
 
 /*
@@ -95,8 +96,8 @@ typedef unsigned long Instruction;
 ** For an instruction with 2 bytes, size is 16, and size_b can be 5
 ** (accordingly, size_u will be 10, and size_a will be 5)
 */
-#define SIZE_INSTRUCTION        32
-#define SIZE_B          9
+#define SIZE_INSTRUCTION        16
+#define SIZE_B          5
 
 #define SIZE_OP         6
 #define SIZE_U          (SIZE_INSTRUCTION-SIZE_OP)
@@ -137,10 +138,6 @@ typedef unsigned long Instruction;
 #define MAXSTACK	250
 #endif
 
-#if MAXSTACK > MAXARG_B
-#undef MAXSTACK
-#define MAXSTACK	MAXARG_B
-#endif
 
 
 /* maximum number of local variables */
@@ -184,11 +181,7 @@ typedef unsigned long Instruction;
 
 
 /* number of list items to accumulate before a SETLIST instruction */
-#define LFIELDS_PER_FLUSH	64
-#if LFIELDS_PER_FLUSH>(MAXSTACK/4)
-#undef LFIELDS_PER_FLUSH
-#define LFIELDS_PER_FLUSH	(MAXSTACK/4)
-#endif
+#define LFIELDS_PER_FLUSH	31
 
 /* number of record items to accumulate before a SETMAP instruction */
 /* (each item counts 2 elements on the stack: an index and a value) */

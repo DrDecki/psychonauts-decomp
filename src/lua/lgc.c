@@ -1,5 +1,6 @@
 /*
 ** $Id: lgc.c,v 1.72 2000/10/26 12:47:05 roberto Exp $
+** Changed by Double Fine for Psychonauts, reconstructed from Psychonauts.exe
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -288,7 +289,7 @@ static void checkMbuffer (lua_State *L) {
     size_t newsize = L->Mbuffsize/2;  /* still larger than MINBUFFER */
     L->nblocks += (newsize - L->Mbuffsize)*sizeof(char);
     L->Mbuffsize = newsize;
-    luaM_reallocvector(L, L->Mbuffer, newsize, char);
+    L->Mbuffer = (char *)luaM_realloc(L, L->Mbuffer, newsize, L->Mbuffsize);
   }
 }
 
