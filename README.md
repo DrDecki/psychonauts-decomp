@@ -22,7 +22,7 @@ This repository does **not** contain any game assets or game code. You need your
 
 ![Progress map](engine/progress.svg)
 
-Every rectangle is one function of the engine, sized by its code. Green ones match, blue ones are known by name but not decompiled yet (mostly the script functions), gray ones haven't been looked at. They are grouped by object file where that is known, the rest by address. `python3 tools/progressmap.py engine/functions.csv engine/progress.svg` draws it again after a new match run.
+Every rectangle is one function of the engine, sized by its code. Green ones match, blue ones are known by name but not decompiled yet (mostly the script functions), gray ones haven't been looked at. The eight big blocks split the code by address. Inside them the functions are grouped by object file where that is known. The rest is cut into pieces of similar size, because most object boundaries are not known yet. decomp.dev draws the same kind of map, but it needs the original executable in the CI, so this one is drawn locally. `python3 tools/progressmap.py engine/functions.csv engine/progress.svg` draws it again after a new match run.
 
 "Matching" means the decompiled function, compiled again, gives byte for byte the same code as the original. For the scripts that is Lua bytecode, for the engine x86 machine code. The tools check this for every single function, so the numbers above are not estimates.
 

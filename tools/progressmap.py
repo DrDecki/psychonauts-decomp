@@ -4,16 +4,17 @@
 usage: progressmap.py engine/functions.csv engine/progress.svg
 
 Every function is a rectangle sized by its bytes of code. Functions are grouped
-by object file where that is known (from the matching functions around them),
-the rest by address. Green: matches the original. Blue: name known, not
+into eight blocks by address, inside them by object file where that is known
+(from the matching functions around them), the rest in pieces of similar size. Green: matches the original. Blue: name known, not
 decompiled yet. Gray: unknown."""
 import csv
 import sys
 
 W, H = 950, 475
 PAD = 8
-COLORS = {'match': '#13c43a', 'named': '#1a6a9e', 'unknown': '#2c3540'}
-REGION = 0x10000
+COLORS = {'match': ('#1fe04a', '#0aa82e'), 'named': ('#1f7bb5', '#145a87'), 'unknown': ('#343f4a', '#262e37')}
+BLOCKS = 8
+UNIT = 0x6000
 
 
 def squarify(items, x, y, w, h):
@@ -61,44 +62,68 @@ def squarify(items, x, y, w, h):
     return out
 
 
+def chunks(seq, limit, idx=1):
+    """split a list into runs of about limit bytes, item[idx] is the size"""
+    out, cur, n = [], [], 0
+    for item in seq:
+        cur.append(item)
+        n += item[idx]
+        if n >= limit:
+            out.append(cur)
+            cur, n = [], 0
+    if cur:
+        out.append(cur)
+    return out
+
+
 def main():
     rows = list(csv.DictReader(open(sys.argv[1])))
     rows.sort(key=lambda r: int(r['address'], 16))
-    # object of each function: its own, or the one of the matching functions on both sides
     objs = [r['object'] if r['status'] == 'matching' else '' for r in rows]
-    prev = [''] * len(rows)
-    last = ''
-    for i, o in enumerate(objs):
-        if o:
-            last = o
-        prev[i] = last
-    nxt = [''] * len(rows)
-    last = ''
+    # an unmatched function between two matching ones of the same object belongs to it
+    prev, last = [], ''
+    for o in objs:
+        last = o or last
+        prev.append(last)
+    nxt, last = [''] * len(rows), ''
     for i in range(len(rows) - 1, -1, -1):
-        if objs[i]:
-            last = objs[i]
+        last = objs[i] or last
         nxt[i] = last
-    groups = {}
+    funcs = []
     for i, r in enumerate(rows):
-        if objs[i]:
-            g = objs[i]
-        elif prev[i] and prev[i] == nxt[i]:
-            g = prev[i]
-        else:
-            g = '%06x' % (int(r['address'], 16) // REGION * REGION)
+        unit = objs[i] or (prev[i] if prev[i] and prev[i] == nxt[i] else '')
         kind = 'match' if r['status'] == 'matching' else ('named' if r['name'] else 'unknown')
-        groups.setdefault(g, []).append((int(r['size']), kind))
-    top = sorted(((sum(s for s, _ in v), k) for k, v in groups.items()), reverse=True)
+        funcs.append((int(r['address'], 16), int(r['size']), kind, unit))
+    total = sum(f[1] for f in funcs)
+    # top level: the code in eight parts by address, like the folders on decomp.dev
+    blocks = chunks([(a, s, (k, u)) for a, s, k, u in funcs], total / BLOCKS + 1)
     rects = []
-    for g, gx, gy, gw, gh in squarify([(s, k) for s, k in top], PAD, PAD, W - 2 * PAD, H - 2 * PAD):
-        items = sorted(groups[g], key=lambda t: -t[0])
-        for kind, x, y, w, h in squarify(items, gx, gy, gw, gh):
-            rects.append((kind, x, y, w, h))
-        rects.append(('group', gx, gy, gw, gh))
+    tops = [(sum(f[1] for f in b), i) for i, b in enumerate(blocks)]
+    for bi, bx, by, bw, bh in squarify(sorted(tops, reverse=True), PAD, PAD, W - 2 * PAD, H - 2 * PAD):
+        # units: known object files, the rest cut into pieces of similar size to them
+        units, run, runkey = [], [], None
+        for a, s, (k, u) in blocks[bi]:
+            key = u or None
+            if run and key != runkey:
+                units += [run] if runkey else chunks(run, UNIT, 0)
+                run = []
+            run.append((s, k))
+            runkey = key
+        if run:
+            units += [run] if runkey else chunks(run, UNIT, 0)
+        usz = sorted(((sum(s for s, _ in un), i) for i, un in enumerate(units)), reverse=True)
+        for ui, ux, uy, uw, uh in squarify(usz, bx, by, bw, bh):
+            for kind, x, y, w, h in squarify(sorted(units[ui], key=lambda t: -t[0]), ux, uy, uw, uh):
+                rects.append((kind, x, y, w, h))
+            rects.append(('unit', ux, uy, uw, uh))
+        rects.append(('block', bx, by, bw, bh))
+    grad = ''.join('<linearGradient id="%s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="%s"/>'
+                   '<stop offset="1" stop-color="%s"/></linearGradient>' % (k, c[0], c[1]) for k, c in COLORS.items())
     out = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">' % (W, H, W, H),
-           '<style>rect{stroke:#0d1117;stroke-width:.3}.match{fill:%s}.named{fill:%s}.unknown{fill:%s}'
-           '.group{fill:none;stroke:#0d1117;stroke-width:1.5}</style>' % (COLORS['match'], COLORS['named'], COLORS['unknown']),
-           '<rect width="%d" height="%d" rx="6" style="fill:#0d1117;stroke:none"/>' % (W, H)]
+           '<defs>%s</defs>' % grad,
+           '<style>rect{stroke:#0d1117;stroke-width:.5}.match{fill:url(#match)}.named{fill:url(#named)}'
+           '.unknown{fill:url(#unknown)}.unit{fill:none;stroke-width:1}.block{fill:none;stroke-width:2.5}</style>',
+           '<rect width="%d" height="%d" style="fill:#0d1117;stroke:none"/>' % (W, H)]
     for kind, x, y, w, h in rects:
         out.append('<rect class="%s" x="%.1f" y="%.1f" width="%.1f" height="%.1f"/>' % (kind, x, y, w, h))
     out.append('</svg>')
