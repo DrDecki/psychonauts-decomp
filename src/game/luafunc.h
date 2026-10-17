@@ -71,7 +71,7 @@ extern bool g_onLuaStack;
     int name(lua_State *L); \
     static ELuaFunction name##_reg(name, #name);
 
-#endif
+
 
 class EScriptObject;
 const char *LuaCallSite(lua_State *L);
@@ -101,3 +101,6 @@ bool PushScriptObject(lua_State *L, EScriptObject *o);
 void *GetResourceArg(lua_State *L, int idx);
 bool GetTableField(lua_State *L, const char *key, int idx);
 void PushColor(lua_State *L, const Color &c);
+void DumpLuaStack(lua_State *L, int first, int last);
+
+#endif

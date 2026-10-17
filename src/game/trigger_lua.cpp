@@ -332,15 +332,13 @@ LUA_FUNCTION(TriggerOBB_GetAABB)
     int n = lua_gettop(L);
     if (!CheckArgs(L, 1, 1))
         return 0;
-    ETriggerOBB *obb = GetTriggerOBBArg(L, 1, false);
-    if (!obb)
+    ETriggerOBB *pTrig = GetTriggerOBBArg(L, 1, false);
+    if (!pTrig)
         return 0;
     EAABB box;
-    obb->GetAABB(&box);
-    Vector3 center = box.GetCenter();
-    PushVector(L, center);
-    Vector3 extent = box.GetExtent();
-    PushVector(L, extent);
+    pTrig->GetAABB(&box);
+    PushVector(L, box.GetCenter());
+    PushVector(L, box.GetExtent());
     return 6;
 }
 

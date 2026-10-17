@@ -134,7 +134,7 @@ EScriptObject *GetScriptObjectById(lua_State *L, int id)
 
 #define IABS(x) (((x) & 0x80000000) ? -(x) : (x))
 
-void DumpLuaStack(lua_State *L, int a, int b);
+
 
 // a script object given as name, table, or id number (ids are 20 and up, smaller
 // numbers are stack indices)

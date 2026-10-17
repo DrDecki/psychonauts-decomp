@@ -132,11 +132,47 @@ def targets(exe, fn, va):
     return out
 
 
+class Known(dict):
+    """known addresses; stdcall imports are looked up without their @N suffix"""
+
+    def _strip(self, k):
+        if isinstance(k, str) and k.startswith("__imp__") and "@" in k:
+            return k[:k.rindex("@")]
+        return k
+
+    def get(self, k, d=None):
+        if dict.__contains__(self, k):
+            return dict.__getitem__(self, k)
+        return dict.get(self, self._strip(k), d)
+
+    def __contains__(self, k):
+        return dict.__contains__(self, k) or dict.__contains__(self, self._strip(k))
+
+    def __getitem__(self, k):
+        if dict.__contains__(self, k):
+            return dict.__getitem__(self, k)
+        return dict.__getitem__(self, self._strip(k))
+
+
 def run(exe, objs, known_in=None):
-    known = dict(exe.imports)
+    known = Known(exe.imports)
     known.update(known_in or {})
+    strtext = {}
+
+    def consistent(n, v):
+        """a string literal may sit at several places with the same text, any of them will do"""
+        k = known.get(n, v)
+        if k == v:
+            return True
+        s = strtext.get(n)
+        if s is not None:
+            o = v - exe.base
+            return exe.image[o:o + len(s) + 1] == s + b"\0"
+        return False
+
     for obj in objs:
         strings = obj.strings()
+        strtext.update(strings)
         found = {}
         for name, s in strings.items():
             hits = find_strings(exe, s)
@@ -151,6 +187,11 @@ def run(exe, objs, known_in=None):
             elif anchors:
                 # strings of one object sit together; take the only hit close to the others
                 near = [va for va in v if any(abs(va - a) < 0x400 for a in anchors)]
+                if len(near) > 1:
+                    # several hits close to other strings: take the closest one
+                    dist = sorted((min(abs(va - a) for a in anchors), va) for va in near)
+                    if dist[0][0] < dist[1][0]:
+                        near = [dist[0][1]]
                 if len(near) == 1:
                     known.setdefault(name, near[0])
     results = {}
@@ -161,7 +202,7 @@ def run(exe, objs, known_in=None):
             hits = find(exe, fn)
             candidates[(obj.path, fn.name)] = (fn, hits)
             hit_targets[(obj.path, fn.name)] = [(va, targets(exe, fn, va)) for va in hits]
-    claimed = set()
+    claimed = {}    # address -> name of the function there (COMDAT copies share it)
     by_section = {}
     for key, (fn, hits) in candidates.items():
         by_section.setdefault((key[0], fn.section.index), []).append((fn.offset, key))
@@ -188,13 +229,23 @@ def run(exe, objs, known_in=None):
         for key, (fn, hits) in candidates.items():
             if key in results:
                 continue
+            if not hits and fn.key in known:
+                # too short to search for, but a matched caller tells where it is
+                va = known[fn.key]
+                o = va - exe.text_va
+                cand = exe.text[o:o + len(fn.code)] if 0 <= o else b''
+                mask = masked(fn)
+                if len(cand) == len(fn.code) and all(m or x == y for x, y, m in zip(fn.code, cand, mask)):
+                    hits = [va]
+                    candidates[key] = (fn, hits)
+                    hit_targets[key] = [(va, targets(exe, fn, va))]
             ok = []
             for va, t in hit_targets[key]:
-                if va in claimed:
+                if va in claimed and claimed[va] != fn.key:
                     continue
                 if fn.key in known and known[fn.key] != va:
                     continue
-                if any(known.get(n, v) != v for n, v in t.items()):
+                if not all(consistent(n, v) for n, v in t.items()):
                     continue
                 ok.append((va, t))
                 if len(ok) > 1:
@@ -204,12 +255,12 @@ def run(exe, objs, known_in=None):
                 ok = [x for x in ok if x[0] == exp][:1]
                 if not ok:
                     # ok was cut at two entries, look through all hits again
-                    ok = [(va, t) for va, t in hit_targets[key] if va == exp and va not in claimed
-                          and all(known.get(n, v) == v for n, v in t.items())]
+                    ok = [(va, t) for va, t in hit_targets[key] if va == exp and claimed.get(va, fn.key) == fn.key
+                          and all(consistent(n, v) for n, v in t.items())]
             if len(ok) == 1:
                 va, t = ok[0]
                 results[key] = va
-                claimed.add(va)
+                claimed[va] = fn.key
                 known.setdefault(fn.key, va)
                 for n, v in t.items():
                     known.setdefault(n, v)
@@ -301,7 +352,7 @@ def main():
             r["object"] = ""
         for (path, name), va in results.items():
             r = by_va.get(va)
-            if r is None:
+            if r is None or r["status"] == "matching":
                 continue
             r["name"] = demangle(name)
             r["status"] = "matching"

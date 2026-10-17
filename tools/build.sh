@@ -19,8 +19,8 @@ else
     INCLUDE=$(winepath -w "$VC/include" 2>/dev/null)
 fi
 
-# no optimization, intrinsics on, dynamic CRT (msvcr90.dll), no stack cookies
-CFLAGS="/nologo /c /Od /Ob1 /Oi /MD /GS-"
+# no optimization but frame pointer omission (only shows in functions with aligned locals), intrinsics on, dynamic CRT (msvcr90.dll), no stack cookies
+CFLAGS="/nologo /c /Od /Oy /Ob1 /Oi /MD /GS-"
 
 for dir in "$ROOT"/src/*/; do
     name=$(basename "$dir")
