@@ -65,6 +65,8 @@ struct Vector3 {
         z = v.z;
     }
     Vector3 Cross(const Vector3 &v) const;
+    float Dot(const Vector3 &v) const;
+    bool operator!=(const Vector3 &v) const { return x != v.x || y != v.y || z != v.z; }
     Vector3 Rotate(const Vector3 &v) const;
     struct EAxisAngle ToAxisAngle() const;
 };
@@ -90,6 +92,8 @@ struct Color {
     float r, g, b, a;
     Color() {}
     Color(float r_, float g_, float b_, float a_) { r = r_; g = g_; b = b_; a = a_; }
+    void operator*=(float s);
+    void operator/=(float s);
 };
 
 inline float Clamp(float x, float lo, float hi)
@@ -168,6 +172,7 @@ struct EQuat {
     void SetEuler(const Vector3 &angles);
     void SetAxisAngle(const EAxisAngle &aa);
     EQuat operator*(const EQuat &q) const;
+    EQuat Slerp(const EQuat &to, float t, bool shortest) const;
     Vector3 ToEuler() const;
     EQuat operator*(float s) const { return EQuat(x * s, y * s, z * s, w * s); }
     float x, y, z, w;
@@ -264,7 +269,10 @@ char *StrDup(const char *s, int category);
 class EPhysics {
 public:
     void SetNavGroup(unsigned int group);
+    int GetMode();
+    void SetMode(int mode, int flags);
     Vector3 &GetPosition() { return *(Vector3 *)m_matrix.m[3]; }
+    bool HasFlag(unsigned int flag) { return (flag & m_physFlags) != 0; }
     Vector3 &GetVelocity() { return m_velocity; }
     Vector3 &GetAnimVelocity() { return m_animVelocity; }
     Vector3 GetTotalVelocity() { return m_velocity + m_animVelocity; }
@@ -282,7 +290,9 @@ public:
 
     char pad0[0x10];
     EMatrix m_matrix;               // 0x10
-    char pad50[0x68 - 0x50];
+    char pad50[0x54 - 0x50];
+    unsigned int m_physFlags;           // 0x54
+    char pad58[0x68 - 0x58];
     Vector3 m_velocity;                 // 0x68
     Vector3 m_animVelocity;             // 0x74
     char pad80[0x94 - 0x80];
@@ -316,6 +326,7 @@ public:
     EPhysics *GetPhysics() { return m_physics; }
     const char *GetName() { return m_name; }
     EClassInfo *GetClass() { return m_class; }
+    bool HasFlag(unsigned int flag) { return (m_entityFlags & flag) != 0; }
     bool IsDeleted() { return (m_flags & 3) != 0; }
     bool IsSleeping() { return m_sleeping; }
     bool IsA(EClassInfo *cls)
@@ -327,7 +338,9 @@ public:
         return GetClass()->IsDerivedFrom(cls);
     }
 
-    char pad0[0xc];
+    char pad0[0x4 - 0x0];
+    unsigned int m_entityFlags;         // 0x4
+    char pad8[0xc - 0x8];
     EScriptObject *m_scriptObject;  // 0x0c
     EPhysics *m_physics;            // 0x10
     char pad14[0x1c - 0x14];
@@ -380,6 +393,7 @@ public:
     void KillAllTimers(EScriptObject *so);
     void DoFile(const char *name, bool once);
     void KillScript(EScriptObject *so);
+    bool KillTimer(EScriptObject *so, unsigned short id, const char *name);
     struct ETimer *FindTimer(EScriptObject *so, unsigned short id, const char *name, int flags);
     void SendMessage(const char *msg, const char *data, EScriptObject *to, EScriptObject *from, int delay);
     void SetValue(EScriptObject *so, const char *path, EScriptObject *value);
@@ -703,6 +717,7 @@ public:
     bool IsRunningAtDF() { return m_runningAtDF; }
     bool IsOXMBuild() { return m_oxmBuild; }
     void ExitClairvoyanceCloud();
+    void EnterClairvoyanceCloud(Color color);
     void ResetLevel(const char *path, int flags);
     float GetRealFrameSecs() { return m_realFrameSecs; }
     int GetCurrentControlHandlerId();
@@ -762,7 +777,9 @@ public:
     char pad81b8[0x8238 - 0x81b8];
     struct EActionItems *m_actionItems; // 0x8238
     void *m_inventory;                  // 0x823c
-    char pad8240[0x8398 - 0x8240];
+    char pad8240[0x8294 - 0x8240];
+    float m_moveInput[2];               // 0x8294
+    char pad829c[0x8398 - 0x829c];
     char m_levelFilter[0x100];          // 0x8398
     char pad8498[0x88c4 - 0x8498];
     struct EBunkhouseUI *m_bunkhouse;   // 0x88c4

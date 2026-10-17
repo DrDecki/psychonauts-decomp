@@ -5377,7 +5377,7 @@ address,size,origin,name,status,object
 0x005b37f0,94,gap,CrossProduct,matching,cur/script_lua.cpp
 0x005b3850,406,gap,CrossProduct_impl,,
 0x005b39f0,94,gap,DotProduct,matching,cur/script_lua.cpp
-0x005b3a50,338,gap,DotProduct_impl,,
+0x005b3a50,338,gap,DotProduct_impl,matching,cur/script_lua.cpp
 0x005b3bb0,94,gap,GetAngleBetween,matching,cur/script_lua.cpp
 0x005b3c10,430,gap,GetAngleBetween_impl,,
 0x005b3dc0,94,gap,GetAxisAngleBetween,matching,cur/script_lua.cpp
@@ -5417,7 +5417,7 @@ address,size,origin,name,status,object
 0x005b6190,94,gap,SetEntityFlag,matching,cur/script_lua.cpp
 0x005b61f0,378,gap,SetEntityFlag_impl,,
 0x005b6370,94,gap,GetEntityFlag,matching,cur/script_lua.cpp
-0x005b63d0,320,gap,GetEntityFlag_impl,,
+0x005b63d0,320,gap,GetEntityFlag_impl,matching,cur/script_lua.cpp
 0x005b6510,94,gap,SetMaxViewDistance,matching,cur/script_lua.cpp
 0x005b6570,111,gap,SetMaxViewDistance_impl,matching,cur/script_lua.cpp
 0x005b65e0,94,gap,SetEntityInterestLevel,matching,cur/script_lua.cpp
@@ -5457,7 +5457,7 @@ address,size,origin,name,status,object
 0x005b7a10,94,gap,KillAllTimers,matching,cur/script_lua.cpp
 0x005b7a70,106,gap,KillAllTimers_impl,matching,cur/script_lua.cpp
 0x005b7ae0,94,gap,KillTimer,matching,cur/script_lua.cpp
-0x005b7b40,346,gap,KillTimer_impl,,
+0x005b7b40,346,gap,KillTimer_impl,matching,cur/script_lua.cpp
 0x005b7ca0,94,gap,HardBreak,matching,cur/script_lua.cpp
 0x005b7d00,96,gap,HardBreak_impl,matching,cur/script_lua.cpp
 0x005b7d60,94,gap,HasEntity,matching,cur/script_lua.cpp
@@ -5502,9 +5502,9 @@ address,size,origin,name,status,object
 0x005ba240,94,gap,PausePlayerControls,matching,cur/script_lua.cpp
 0x005ba2a0,229,gap,PausePlayerControls_impl,matching,cur/script_lua.cpp
 0x005ba390,94,gap,APIDontRunPlayerControls,matching,cur/script_lua.cpp
-0x005ba3f0,339,gap,APIDontRunPlayerControls_impl,,
+0x005ba3f0,339,gap,APIDontRunPlayerControls_impl,matching,cur/script_lua.cpp
 0x005ba550,94,gap,GetPlayerControlCameraRelativeVector,matching,cur/script_lua.cpp
-0x005ba5b0,128,gap,GetPlayerControlCameraRelativeVector_impl,,
+0x005ba5b0,128,gap,GetPlayerControlCameraRelativeVector_impl,matching,cur/script_lua.cpp
 0x005ba630,94,gap,RegisterCutscene,matching,cur/script_lua.cpp
 0x005ba690,106,gap,RegisterCutscene_impl,matching,cur/script_lua.cpp
 0x005ba700,94,gap,UnregisterCutscene,matching,cur/script_lua.cpp
@@ -5624,7 +5624,7 @@ address,size,origin,name,status,object
 0x005bee90,94,gap,CreateProceduralTexture,matching,cur/script_lua.cpp
 0x005beef0,277,gap,CreateProceduralTexture_impl,matching,cur/script_lua.cpp
 0x005bf010,94,gap,FadeGetCurrentState,matching,cur/script_lua.cpp
-0x005bf070,303,gap,FadeGetCurrentState_impl,,
+0x005bf070,303,gap,FadeGetCurrentState_impl,matching,cur/script_lua.cpp
 0x005bf1a0,94,gap,GetFadeCompletion,matching,cur/script_lua.cpp
 0x005bf200,61,gap,GetFadeCompletion_impl,matching,cur/script_lua.cpp
 0x005bf240,94,gap,FadeToColor,matching,cur/script_lua.cpp
@@ -5638,7 +5638,7 @@ address,size,origin,name,status,object
 0x005bfe00,94,gap,StopAllBlendAnims,matching,cur/script_lua.cpp
 0x005bfe60,286,gap,StopAllBlendAnims_impl,matching,cur/script_lua.cpp
 0x005bff80,94,gap,StopBlendAnim,matching,cur/script_lua.cpp
-0x005bffe0,305,gap,StopBlendAnim_impl,,
+0x005bffe0,305,gap,StopBlendAnim_impl,matching,cur/script_lua.cpp
 0x005c0120,94,gap,GetBlendAnimCompletion,matching,cur/script_lua.cpp
 0x005c0180,187,gap,GetBlendAnimCompletion_impl,matching,cur/script_lua.cpp
 0x005c0240,94,gap,GamePrint,matching,cur/script_lua.cpp
@@ -5698,7 +5698,7 @@ address,size,origin,name,status,object
 0x005c2490,94,gap,GetScale,matching,cur/script_lua.cpp
 0x005c24f0,178,gap,GetScale_impl,matching,cur/script_lua.cpp
 0x005c25b0,94,gap,SetScale,matching,cur/script_lua.cpp
-0x005c2610,336,gap,SetScale_impl,,
+0x005c2610,336,gap,SetScale_impl,matching,cur/script_lua.cpp
 0x005c2760,94,gap,PlayerLockInputTransform,matching,cur/script_lua.cpp
 0x005c27c0,150,gap,PlayerLockInputTransform_impl,matching,cur/script_lua.cpp
 0x005c2860,94,gap,PreloadMesh,matching,cur/script_lua.cpp
@@ -5794,7 +5794,7 @@ address,size,origin,name,status,object
 0x005c7600,94,gap,SetEditableLightMode,matching,cur/script_lua.cpp
 0x005c7660,97,gap,SetEditableLightMode_impl,matching,cur/script_lua.cpp
 0x005c76d0,94,gap,EnterClairvoyanceCloud,matching,cur/script_lua.cpp
-0x005c7730,302,gap,EnterClairvoyanceCloud_impl,,
+0x005c7730,302,gap,EnterClairvoyanceCloud_impl,matching,cur/script_lua.cpp
 0x005c7860,94,gap,ExitClairvoyanceCloud,matching,cur/script_lua.cpp
 0x005c78c0,63,gap,ExitClairvoyanceCloud_impl,matching,cur/script_lua.cpp
 0x005c7900,94,gap,SetPlayerIsConfused,matching,cur/script_lua.cpp
@@ -5818,7 +5818,7 @@ address,size,origin,name,status,object
 0x005c83a0,94,gap,NativeQuatFromVectorPair,matching,cur/script_lua.cpp
 0x005c8400,263,gap,NativeQuatFromVectorPair_impl,matching,cur/script_lua.cpp
 0x005c8510,94,gap,NativeQuatSlerp,matching,cur/script_lua.cpp
-0x005c8570,317,gap,NativeQuatSlerp_impl,,
+0x005c8570,317,gap,NativeQuatSlerp_impl,matching,cur/script_lua.cpp
 0x005c86b0,94,gap,BitAnd,matching,cur/script_lua.cpp
 0x005c8710,168,gap,BitAnd_impl,matching,cur/script_lua.cpp
 0x005c87c0,94,gap,BitOr,matching,cur/script_lua.cpp

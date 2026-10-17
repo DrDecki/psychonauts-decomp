@@ -151,8 +151,9 @@ public:
     void StartMeshAnim(int anim, bool loop);
     void StopMeshAnim(bool now);
     void LockLODLevel(unsigned char level);
-    void StopAllBlendAnims(int flags, float blend);
-    void StopAllBlendAnimsNow(int flags);
+    void SetScale(const Vector3 &scale);
+    void StopBlendAnim(const char *name, float blend);
+    void StopBlendAnimNow(const char *name);
     void CopyStaticPose(ETriggerA8 *from, bool flag);
     struct EModel *GetModel() { return m_model; }
     void SetProperty(unsigned int prop, bool on, void *texture);
@@ -166,7 +167,9 @@ public:
     char pad60[0x94 - 0x60];
     bool m_94_0 : 1;                // 0x94
     bool m_meshAnimPlaying : 1;
-    char pad95[0x1b0 - 0x95];
+    char pad95[0xb0 - 0x95];
+    EMatrix m_animMatrix;               // 0xb0
+    char padf0[0x1b0 - 0xf0];
     Vector3 m_scale;                // 0x1b0
     char pad1bc[0x1d8 - 0x1bc];
     float m_animSpeedScale;         // 0x1d8
@@ -321,6 +324,7 @@ public:
 class EActionItems {
 public:
     void LockInputTransform(bool on);
+    float GetCameraRelativeVector(const float *input, Vector3 *out, int a, int b);
     void PassItem(const char *name);
     virtual void Vf00();
     virtual void Vf04();
@@ -343,7 +347,8 @@ public:
 };
 
 struct EFadeInfo {
-    char pad0[0x13c];
+    Color color;                    // 0x00
+    char name[300];                 // 0x10
     float completion;               // 0x13c
 };
 
@@ -437,6 +442,9 @@ bool SetPlayerControlsPaused(bool pause, bool flag);
 
 // the action the player control switches to for a forced jump
 extern const char *g_jumpActionName;
+extern const char *g_dontRunActionName;
+void ResetPlayerInput(int flags);
+bool SetPlayerDontRun(bool on);
 
 class EPlayerControlActions {
 public:
@@ -640,7 +648,24 @@ LUA_FUNCTION_NOSTACK_TODO(RotateTowards2D)
 
 LUA_FUNCTION_NOSTACK_TODO(RotateTowards3D)
 
-LUA_FUNCTION_TODO(GetEntityOrientationVector)
+LUA_FUNCTION(GetEntityOrientationVector)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 4))
+        return 0;
+    EMeshEntity *ent = (EMeshEntity *)GetTriggerArg(L, 1, false);
+    if (!ent)
+        return 0;
+    Vector3 dir(GetNumberArg(L, 2, false), GetNumberArg(L, 3, false), GetNumberArg(L, 4, false));
+    Vector3 euler;
+    euler.Set(ent->GetMesh()->m_animMatrix.ToEuler());
+    Vector3 result = dir.Rotate(euler);
+    result.Normalize();
+    lua_pushnumber(L, result.x);
+    lua_pushnumber(L, result.y);
+    lua_pushnumber(L, result.z);
+    return 3;
+}
 
 LUA_FUNCTION(GetEntityForwardVector)
 {
@@ -777,7 +802,21 @@ LUA_FUNCTION(EulerToVector)
 
 LUA_FUNCTION_TODO(CrossProduct)
 
-LUA_FUNCTION_TODO(DotProduct)
+LUA_FUNCTION(DotProduct)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 6, 7))
+        return 0;
+    Vector3 rot(GetNumberArg(L, 1, false), GetNumberArg(L, 2, false), GetNumberArg(L, 3, false));
+    Vector3 b(GetNumberArg(L, 4, false), GetNumberArg(L, 5, false), GetNumberArg(L, 6, false));
+    bool normalize = n >= 7 ? GetNumberArg(L, 7, true) != 0 : false;
+    if (normalize) {
+        rot.Normalize();
+        b.Normalize();
+    }
+    lua_pushnumber(L, rot.Dot(b));
+    return 1;
+}
 
 LUA_FUNCTION_TODO(GetAngleBetween)
 
@@ -904,7 +943,28 @@ LUA_FUNCTION(GetSimulationCullDistance)
 
 LUA_FUNCTION_TODO(SetEntityFlag)
 
-LUA_FUNCTION_TODO(GetEntityFlag)
+LUA_FUNCTION(GetEntityFlag)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EEntity *ent = GetEntityArg(L, 1, false, 0);
+    if (!ent)
+        return 0;
+    unsigned int flag = (unsigned int)GetNumberArg(L, 2, false);
+    if (lua_type(L, 2) == LUA_TNIL) {
+        LuaCallSite(L);
+        return 0;
+    }
+    if (flag == 0x10) {
+        float val = ent->GetPhysics()->HasFlag(0x80) ? 1.0f : 0.0f;
+        lua_pushnumber(L, val);
+        return 1;
+    }
+    float val = ent->HasFlag(flag) ? 1.0f : 0.0f;
+    lua_pushnumber(L, val);
+    return 1;
+}
 
 LUA_FUNCTION(SetMaxViewDistance)
 {
@@ -1134,7 +1194,25 @@ LUA_FUNCTION(KillAllTimers)
     return 0;
 }
 
-LUA_FUNCTION_TODO(KillTimer)
+LUA_FUNCTION(KillTimer)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 4))
+        return 0;
+    EScriptObject *so = GetScriptObjectArg(L, 1, false, false);
+    if (!so)
+        return 0;
+    unsigned short id = (unsigned short)GetNumberArg(L, 2, false);
+    bool quiet = n >= 3 ? GetNumberArg(L, 3, true) != 0 : false;
+    const char *name = n >= 4 ? GetStringArg(L, 4, true) : 0;
+    if (!id) {
+        LuaCallSite(L);
+        return 0;
+    }
+    if (!GetScriptManager()->KillTimer(so, id, name) && !quiet)
+        DebugPrintf("%s: no timer on %s", LuaCallSite(L), so->GetName());
+    return 0;
+}
 
 LUA_FUNCTION(HardBreak)
 {
@@ -1390,9 +1468,36 @@ LUA_FUNCTION(PausePlayerControls)
     return 0;
 }
 
-LUA_FUNCTION_TODO(APIDontRunPlayerControls)
+LUA_FUNCTION(APIDontRunPlayerControls)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 2))
+        return 0;
+    bool bDontRun = GetNumberArg(L, 1, false) != 0;
+    bool keep = n >= 2 ? GetNumberArg(L, 2, true) != 0 : false;
+    if (!keep) {
+        ResetPlayerInput(0);
+        g_game->SetControlHandler(0, 0);
+        EPlayerControl *pPc = g_game->GetPlayerControl();
+        if (bDontRun)
+            ((EPlayerControlActions *)g_game->GetPlayerControl())->SetAction(g_dontRunActionName, 0, true, 0);
+        else
+            ((EPlayerControlActions *)g_game->GetPlayerControl())->SetAction(g_jumpActionName, 0, true, 0);
+    }
+    if (!SetPlayerDontRun(bDontRun))
+        LuaCallSite(L);
+    return 0;
+}
 
-LUA_FUNCTION_TODO(GetPlayerControlCameraRelativeVector)
+LUA_FUNCTION(GetPlayerControlCameraRelativeVector)
+{
+    EZeroVector3 v;
+    g_game->GetActionItems()->GetCameraRelativeVector(g_game->m_moveInput, &v, 0, 0);
+    lua_pushnumber(L, v.x);
+    lua_pushnumber(L, v.y);
+    lua_pushnumber(L, v.z);
+    return 3;
+}
 
 LUA_FUNCTION(RegisterCutscene)
 {
@@ -2080,7 +2185,25 @@ LUA_FUNCTION(CreateProceduralTexture)
     return 1;
 }
 
-LUA_FUNCTION_TODO(FadeGetCurrentState)
+LUA_FUNCTION(FadeGetCurrentState)
+{
+    if (lua_gettop(L) < 0 || lua_gettop(L) > 0)
+        return 0;
+    EFadeInfo theInfo;
+    g_game->m_fader->GetFadeInfo(&theInfo);
+    char curMsg[300];
+    strncpy(curMsg, theInfo.name, 300);
+    curMsg[299] = 0;
+    ScriptError(curMsg);
+    Color c = theInfo.color;
+    c *= 255.0f;
+    lua_pushnumber(L, c.r);
+    lua_pushnumber(L, c.g);
+    lua_pushnumber(L, c.b);
+    lua_pushnumber(L, c.a);
+    lua_pushstring(L, theInfo.name);
+    return 5;
+}
 
 LUA_FUNCTION(GetFadeCompletion)
 {
@@ -2124,16 +2247,35 @@ LUA_FUNCTION(StopAllBlendAnims)
     EBlendStopFlags newFlags;
     newFlags.m_now = false;
     if (newBlend > kMinPeriod)
-        ent->GetMesh()->StopAllBlendAnims(0, newBlend);
+        ent->GetMesh()->StopBlendAnim(0, newBlend);
     else if (newBlend < -kMinPeriod)
-        ent->GetMesh()->StopAllBlendAnims(0, newBlend);
+        ent->GetMesh()->StopBlendAnim(0, newBlend);
     else
-        ent->GetMesh()->StopAllBlendAnimsNow(0);
+        ent->GetMesh()->StopBlendAnimNow(0);
     lua_pushnumber(L, 1);
     return 1;
 }
 
-LUA_FUNCTION_TODO(StopBlendAnim)
+LUA_FUNCTION(StopBlendAnim)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 3))
+        return 0;
+    EEntity *entity = GetTriggerArg(L, 1, false);
+    if (!entity)
+        return 0;
+    const char *aName = GetStringArg(L, 2, false);
+    float blend = n >= 3 ? GetNumberArg(L, 3, true) : -1.0f;
+    EMeshEntity *pMesh = (EMeshEntity *)entity;
+    if (blend > kMinPeriod)
+        pMesh->GetMesh()->StopBlendAnim(aName, blend);
+    else if (blend < -kMinPeriod)
+        pMesh->GetMesh()->StopBlendAnim(aName, blend);
+    else
+        pMesh->GetMesh()->StopBlendAnimNow(aName);
+    lua_pushnumber(L, 1);
+    return 1;
+}
 
 LUA_FUNCTION(GetBlendAnimCompletion)
 {
@@ -2524,7 +2666,27 @@ LUA_FUNCTION(GetScale)
     return 3;
 }
 
-LUA_FUNCTION_TODO(SetScale)
+LUA_FUNCTION(SetScale)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 4))
+        return 0;
+    EMeshEntity *ent = (EMeshEntity *)GetTriggerArg(L, 1, false);
+    if (!ent)
+        return 0;
+    Vector3 fScale(GetNumberArg(L, 2, false), GetNumberArg(L, 3, false), GetNumberArg(L, 4, false));
+    Vector3 one(1, 1, 1);
+    EPhysics *thePhys;
+    if (fScale != one) {
+        thePhys = ent->GetPhysics();
+        if (thePhys->GetMode() == 4 && thePhys->HasFlag(1)) {
+            LuaCallSite(L);
+            thePhys->SetMode(1, 0);
+        }
+    }
+    ent->m_mesh->SetScale(fScale);
+    return 0;
+}
 
 LUA_FUNCTION(PlayerLockInputTransform)
 {
@@ -2938,7 +3100,21 @@ LUA_FUNCTION(SetEditableLightMode)
     return 0;
 }
 
-LUA_FUNCTION_TODO(EnterClairvoyanceCloud)
+LUA_FUNCTION(EnterClairvoyanceCloud)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 0, 4))
+        return 0;
+    float r = n >= 1 ? GetNumberArg(L, 1, true) : 252.0f;
+    float g = n >= 2 ? GetNumberArg(L, 2, true) : 103.0f;
+    float b = n >= 3 ? GetNumberArg(L, 3, true) : 0.0f;
+    float angle = n >= 4 ? GetNumberArg(L, 4, true) : 51.0f;
+    Color num(r, g, b, angle);
+    float pos;  // not used, but the original has it on the stack too
+    num /= 255.0f;
+    g_game->EnterClairvoyanceCloud(num);
+    return 0;
+}
 
 LUA_FUNCTION(ExitClairvoyanceCloud)
 {
@@ -3061,7 +3237,17 @@ LUA_FUNCTION(NativeQuatFromVectorPair)
     return 4;
 }
 
-LUA_FUNCTION_TODO(NativeQuatSlerp)
+LUA_FUNCTION(NativeQuatSlerp)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 9, 9))
+        return 0;
+    EQuat newFrom(GetNumberArg(L, 1, false), GetNumberArg(L, 2, false), GetNumberArg(L, 3, false), GetNumberArg(L, 4, false));
+    EQuat theTo(GetNumberArg(L, 5, false), GetNumberArg(L, 6, false), GetNumberArg(L, 7, false), GetNumberArg(L, 8, false));
+    float t = GetNumberArg(L, 9, false);
+    PushColor(L, *(Color *)&newFrom.Slerp(theTo, t, true));
+    return 4;
+}
 
 LUA_FUNCTION(BitAnd)
 {
