@@ -5415,7 +5415,7 @@ address,size,origin,name,status,object
 0x005b6090,94,gap,GetSimulationCullDistance,matching,cur/script_lua.cpp
 0x005b60f0,152,gap,GetSimulationCullDistance_impl,matching,cur/script_lua.cpp
 0x005b6190,94,gap,SetEntityFlag,matching,cur/script_lua.cpp
-0x005b61f0,378,gap,SetEntityFlag_impl,,
+0x005b61f0,378,gap,SetEntityFlag_impl,matching,cur/script_lua.cpp
 0x005b6370,94,gap,GetEntityFlag,matching,cur/script_lua.cpp
 0x005b63d0,320,gap,GetEntityFlag_impl,matching,cur/script_lua.cpp
 0x005b6510,94,gap,SetMaxViewDistance,matching,cur/script_lua.cpp
@@ -5451,7 +5451,7 @@ address,size,origin,name,status,object
 0x005b7570,94,gap,SetPlayerLookBox,matching,cur/script_lua.cpp
 0x005b75d0,218,gap,SetPlayerLookBox_impl,matching,cur/script_lua.cpp
 0x005b76b0,94,gap,CreateNamedTimer,matching,cur/script_lua.cpp
-0x005b7710,358,gap,CreateNamedTimer_impl,,
+0x005b7710,358,gap,CreateNamedTimer_impl,matching,cur/script_lua.cpp
 0x005b7880,94,gap,GetTimerSecs,matching,cur/script_lua.cpp
 0x005b78e0,293,gap,GetTimerSecs_impl,matching,cur/script_lua.cpp
 0x005b7a10,94,gap,KillAllTimers,matching,cur/script_lua.cpp
@@ -5469,7 +5469,7 @@ address,size,origin,name,status,object
 0x005b88d0,94,gap,SendMessageEx,matching,cur/script_lua.cpp
 0x005b8930,679,gap,SendMessageEx_impl,,
 0x005b8be0,94,gap,SendMessageToDomain,matching,cur/script_lua.cpp
-0x005b8c40,366,gap,SendMessageToDomain_impl,,
+0x005b8c40,366,gap,SendMessageToDomain_impl,matching,cur/script_lua.cpp
 0x005b8db0,94,gap,CanHandleMessage,matching,cur/script_lua.cpp
 0x005b8e10,164,gap,CanHandleMessage_impl,matching,cur/script_lua.cpp
 0x005b8ec0,94,gap,FindScriptObject,matching,cur/script_lua.cpp
@@ -5524,7 +5524,7 @@ address,size,origin,name,status,object
 0x005bb9d0,94,gap,SetActiveSkyBox,matching,cur/script_lua.cpp
 0x005bba30,93,gap,SetActiveSkyBox_impl,matching,cur/script_lua.cpp
 0x005bba90,94,gap,LoadNewLevel,matching,cur/script_lua.cpp
-0x005bbaf0,393,gap,LoadNewLevel_impl,,
+0x005bbaf0,393,gap,LoadNewLevel_impl,matching,cur/script_lua.cpp
 0x005bbc80,94,gap,DomainExists,matching,cur/script_lua.cpp
 0x005bbce0,166,gap,DomainExists_impl,matching,cur/script_lua.cpp
 0x005bbd90,94,gap,DomainSleep,matching,cur/script_lua.cpp
@@ -5602,7 +5602,7 @@ address,size,origin,name,status,object
 0x005be330,94,gap,SetUIControlHandler,matching,cur/script_lua.cpp
 0x005be390,279,gap,SetUIControlHandler_impl,matching,cur/script_lua.cpp
 0x005be4b0,94,gap,SetControlHandler,matching,cur/script_lua.cpp
-0x005be510,383,gap,SetControlHandler_impl,,
+0x005be510,383,gap,SetControlHandler_impl,matching,cur/script_lua.cpp
 0x005be690,94,gap,GetControlHandler,matching,cur/script_lua.cpp
 0x005be6f0,87,gap,GetControlHandler_impl,matching,cur/script_lua.cpp
 0x005be750,94,gap,GetPlayerActionItem,matching,cur/script_lua.cpp
@@ -5662,7 +5662,7 @@ address,size,origin,name,status,object
 0x005c0d20,94,gap,GetRelPosition,matching,cur/script_lua.cpp
 0x005c0d80,222,gap,GetRelPosition_impl,matching,cur/script_lua.cpp
 0x005c0e60,94,gap,SetAbsPosition,matching,cur/script_lua.cpp
-0x005c0ec0,400,gap,SetAbsPosition_impl,,
+0x005c0ec0,400,gap,SetAbsPosition_impl,matching,cur/script_lua.cpp
 0x005c1050,94,gap,SetRelPosition,matching,cur/script_lua.cpp
 0x005c10b0,219,gap,SetRelPosition_impl,matching,cur/script_lua.cpp
 0x005c1190,94,gap,GetAbsOrientation,matching,cur/script_lua.cpp
@@ -5680,7 +5680,7 @@ address,size,origin,name,status,object
 0x005c1a40,94,gap,GetPosition,matching,cur/script_lua.cpp
 0x005c1aa0,17,gap,GetPosition_impl,matching,cur/script_lua.cpp
 0x005c1ac0,94,gap,SetPosition,matching,cur/script_lua.cpp
-0x005c1b20,344,gap,SetPosition_impl,,
+0x005c1b20,344,gap,SetPosition_impl,matching,cur/script_lua.cpp
 0x005c1c80,94,gap,GetPlayerPosition,matching,cur/script_lua.cpp
 0x005c1ce0,116,gap,GetPlayerPosition_impl,matching,cur/script_lua.cpp
 0x005c1d60,94,gap,InitPosition,matching,cur/script_lua.cpp
@@ -5740,7 +5740,7 @@ address,size,origin,name,status,object
 0x005c4980,94,gap,GetMeshIsBackwards,matching,cur/script_lua.cpp
 0x005c49e0,123,gap,GetMeshIsBackwards_impl,matching,cur/script_lua.cpp
 0x005c4a60,94,gap,SetPhysics,matching,cur/script_lua.cpp
-0x005c4ac0,333,gap,SetPhysics_impl,,
+0x005c4ac0,333,gap,SetPhysics_impl,matching,cur/script_lua.cpp
 0x005c4c10,94,gap,CreateObject,matching,cur/script_lua.cpp
 0x005c4c70,463,gap,CreateObject_impl,,
 0x005c4e40,94,gap,GetBaseClass,matching,cur/script_lua.cpp
@@ -5767,7 +5767,7 @@ address,size,origin,name,status,object
 0x005c6150,94,gap,GetEntityFeelCenter,matching,cur/script_lua.cpp
 0x005c61b0,202,gap,GetEntityFeelCenter_impl,matching,cur/script_lua.cpp
 0x005c6280,94,gap,GetEntityFeelExtent,matching,cur/script_lua.cpp
-0x005c62e0,351,gap,GetEntityFeelExtent_impl,,
+0x005c62e0,351,gap,GetEntityFeelExtent_impl,matching,cur/script_lua.cpp
 0x005c6440,94,gap,GetEntityLookCenter,matching,cur/script_lua.cpp
 0x005c64a0,204,gap,GetEntityLookCenter_impl,matching,cur/script_lua.cpp
 0x005c6570,94,gap,SetEntityAnimationMovementScale,matching,cur/script_lua.cpp
@@ -5832,7 +5832,7 @@ address,size,origin,name,status,object
 0x005c8bd0,94,gap,BitRsh,matching,cur/script_lua.cpp
 0x005c8c30,170,gap,BitRsh_impl,matching,cur/script_lua.cpp
 0x005c8ce0,94,gap,BitStore,matching,cur/script_lua.cpp
-0x005c8d40,358,gap,BitStore_impl,,
+0x005c8d40,358,gap,BitStore_impl,matching,cur/script_lua.cpp
 0x005c8eb0,94,gap,BitFetch,matching,cur/script_lua.cpp
 0x005c8f10,264,gap,BitFetch_impl,matching,cur/script_lua.cpp
 0x005c9020,94,gap,ListDomains,matching,cur/script_lua.cpp

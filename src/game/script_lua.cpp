@@ -13,7 +13,7 @@ public:
     virtual void Vf04();
     virtual void Vf08();
     virtual void Vf0c();
-    virtual void Vf10();
+    virtual bool HasMesh();         // 0x10
     virtual void Vf14();
     virtual void Vf18();
     virtual void Vf1c();
@@ -155,6 +155,7 @@ public:
     void StopBlendAnim(const char *name, float blend);
     void StopBlendAnimNow(const char *name);
     void CopyStaticPose(ETriggerA8 *from, bool flag);
+    EAABB GetBounds();
     struct EModel *GetModel() { return m_model; }
     void SetProperty(unsigned int prop, bool on, void *texture);
     void SetMaterialProperty(unsigned int prop, bool on, void *texture);
@@ -194,6 +195,7 @@ struct EDomain {
     const char *GetName() { return m_name; }
     bool IsSleeping() { return m_sleeping; }
     EDomain *FindDomain(const char *name);
+    void SendMessage(EScriptObject *from, const char *msg, const char *data, int delay, bool recurse);
     void CreateChild(const char *name, int flags);
 
     char pad0[0x14];
@@ -273,7 +275,7 @@ public:
 
     char pad0[0x6c];
     EMatrix *m_lookMatrix;          // 0x6c
-    char pad70[0x80 - 0x70];
+    EQuat m_lookRot;                // 0x70
     struct ELookAtInfo *m_lookAt;   // 0x80
 };
 
@@ -326,6 +328,7 @@ public:
     void LockInputTransform(bool on);
     float GetCameraRelativeVector(const float *input, Vector3 *out, int a, int b);
     void PassItem(const char *name);
+    void SetLadderEntity(EEntity *ent);
     virtual void Vf00();
     virtual void Vf04();
     virtual void Vf08();
@@ -410,6 +413,8 @@ public:
     EPhysics *GetPhysics() { return m_physics; }
     void DisableDeltaTransAnims();
     void UnloadPriorityAnim(int anim, float blend);
+    void UpdateCollisionMesh();
+    void FadeIn(float secs);
 
     char pad0[0x10];
     EPhysics *m_physics;            // 0x10
@@ -657,9 +662,9 @@ LUA_FUNCTION(GetEntityOrientationVector)
     if (!ent)
         return 0;
     Vector3 dir(GetNumberArg(L, 2, false), GetNumberArg(L, 3, false), GetNumberArg(L, 4, false));
-    Vector3 euler;
-    euler.Set(ent->GetMesh()->m_animMatrix.ToEuler());
-    Vector3 result = dir.Rotate(euler);
+    Vector3 newEuler;
+    newEuler.Set(ent->GetMesh()->m_animMatrix.ToEuler());
+    Vector3 result = dir.Rotate(newEuler);
     result.Normalize();
     lua_pushnumber(L, result.x);
     lua_pushnumber(L, result.y);
@@ -941,7 +946,33 @@ LUA_FUNCTION(GetSimulationCullDistance)
     return 1;
 }
 
-LUA_FUNCTION_TODO(SetEntityFlag)
+LUA_FUNCTION(SetEntityFlag)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 3, 3))
+        return 0;
+    EEntity *ent = GetEntityArg(L, 1, false, 0);
+    if (!ent)
+        return 0;
+    unsigned int type = (unsigned int)GetNumberArg(L, 2, false);
+    if (lua_type(L, 2) == LUA_TNIL) {
+        LuaCallSite(L);
+        return 0;
+    }
+    bool on = GetNumberArg(L, 3, false) != 0;
+    if (type == 0x10) {
+        ent->GetPhysics()->SetMode(0x80, on);
+        return 0;
+    }
+    ((EScriptEntity *)ent)->SetFlag(type, on);
+    if (type == 0x200000 && ((EEntityVirtuals *)ent)->HasMesh()) {
+        EMeshEntity *theMesh = (EMeshEntity *)ent;
+        theMesh->UpdateCollisionMesh();
+    }
+    if (type == 0x80000000 && ((EEntityVirtuals *)ent)->HasMesh() && on)
+        ((EMeshEntity *)ent)->FadeIn(0.001f);
+    return 0;
+}
 
 LUA_FUNCTION(GetEntityFlag)
 {
@@ -1110,7 +1141,27 @@ LUA_FUNCTION(SetHeadJoint)
     return 0;
 }
 
-LUA_FUNCTION_TODO(SetMeshLookAtParams)
+LUA_FUNCTION(SetMeshLookAtParams)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 4))
+        return 0;
+    ELookTrigger *ent = (ELookTrigger *)GetTriggerArg(L, 1, false);
+    if (!ent)
+        return 0;
+    Vector3 theAxis(GetNumberArg(L, 2, false), GetNumberArg(L, 3, false), GetNumberArg(L, 4, false));
+    float lenSqArg = theAxis.LengthSq();
+    if (lenSqArg > 1.0) {
+        theAxis /= sqrt(lenSqArg);
+        lenSqArg = 1.0f;
+    }
+    EQuat rot(0, 0, 0, 1);
+    *(Vector3 *)&rot = theAxis;
+    rot.w = sqrt(1.0f - lenSqArg);
+    EQuat *myDst = &ent->m_lookRot;
+    *myDst = rot;
+    return 0;
+}
 
 LUA_FUNCTION(DumpMeshLookAtParams)
 {
@@ -1160,7 +1211,26 @@ LUA_FUNCTION(SetPlayerLookBox)
     return 0;
 }
 
-LUA_FUNCTION_TODO(CreateNamedTimer)
+LUA_FUNCTION(CreateNamedTimer)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 5))
+        return 0;
+    EScriptObject *so = GetScriptObjectArg(L, 1, false, false);
+    if (!so)
+        return 0;
+    float secs = GetNumberArg(L, 2, false);
+    const char *szName = GetStringArg(L, 3, false);
+    unsigned short idx = (unsigned short)GetNumberArg(L, 4, false);
+    bool bRepeat = n >= 5 ? GetNumberArg(L, 5, true) != 0 : false;
+    if (szName && !*szName)
+        szName = 0;
+    if (secs <= 0.0 || !idx)
+        LuaCallSite(L);
+    else
+        g_game->m_scripts.CreateTimer(so, secs, idx, bRepeat != 0, szName);
+    return 0;
+}
 
 LUA_FUNCTION(GetTimerSecs)
 {
@@ -1268,7 +1338,32 @@ LUA_FUNCTION(SendMessage)
 
 LUA_FUNCTION_TODO(SendMessageEx)
 
-LUA_FUNCTION_TODO(SendMessageToDomain)
+LUA_FUNCTION(SendMessageToDomain)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 5, 6))
+        return 0;
+    EScriptObject *myFromVal = GetScriptObjectArg(L, 1, false, false);
+    if (!myFromVal)
+        return 0;
+    const char *pszDomainName = GetStringArg(L, 2, false);
+    bool bRecurse = GetNumberArg(L, 3, false) != 0;
+    const char *myMsg = GetStringArg(L, 4, false);
+    const char *pszData = GetStringArg(L, 5, false);
+    int delay = n >= 6 ? (int)GetNumberArg(L, 6, true) : 0;
+    int frames = delay;
+    if (!pszDomainName || !myMsg || !pszData) {
+        LuaCallSite(L);
+        return 0;
+    }
+    EDomain *domain = g_game->m_levels->GetDomainManager()->FindDomain(pszDomainName);
+    if (!domain) {
+        LuaCallSite(L);
+        return 0;
+    }
+    domain->SendMessage(myFromVal, myMsg, pszData, delay, bRecurse);
+    return 0;
+}
 
 LUA_FUNCTION(CanHandleMessage)
 {
@@ -1568,7 +1663,40 @@ LUA_FUNCTION(SetActiveSkyBox)
     return 0;
 }
 
-LUA_FUNCTION_TODO(LoadNewLevel)
+LUA_FUNCTION(LoadNewLevel)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    const char *name = GetStringArg(L, 1, false);
+    if (!name)
+        return 0;
+    const char *ext = strrchr(name, '.');
+    char path[200];
+    if (!ext) {
+        _snprintf(path, 200, "workresource\\levels\\%s.plb", name);
+        path[199] = 0;
+    } else {
+        strncpy(path, name, 200);
+        path[199] = 0;
+    }
+    for (int i = 0; path[i]; i++) {
+        if (path[i] == '/')
+            path[i] = '\\';
+    }
+    if (g_game->m_skipLevelCheck) {
+        g_game->ResetLevel(path, 0);
+    } else {
+        EFile file;
+        if (!file.Open(path, 0)) {
+            LuaCallSite(L);
+        } else {
+            file.Close();
+            g_game->ResetLevel(path, 0);
+        }
+    }
+    return 0;
+}
 
 LUA_FUNCTION(DomainExists)
 {
@@ -2057,7 +2185,40 @@ LUA_FUNCTION(SetUIControlHandler)
     return 0;
 }
 
-LUA_FUNCTION_TODO(SetControlHandler)
+LUA_FUNCTION(SetControlHandler)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 2))
+        return 0;
+    int index = (unsigned int)GetNumberArg(L, 1, false);
+    if (lua_type(L, 1) == LUA_TNIL) {
+        LuaCallSite(L);
+        return 0;
+    }
+    int cur = g_game->GetCurrentControlHandlerId();
+    if (cur != index) {
+        switch (index) {
+        case 15: {
+            EEntity *theLadder = n >= 2 ? GetEntityArg(L, 2, true, 0) : 0;
+            if (!theLadder)
+                return 0;
+            g_game->GetActionItems()->SetLadderEntity(theLadder);
+            break;
+        }
+        case 10: {
+            EEntity *e = n >= 2 ? GetEntityArg(L, 2, true, 0) : 0;
+            if (!e)
+                return 0;
+            g_game->SetControlHandler(index, (int)e);
+            break;
+        }
+        default:
+            g_game->SetControlHandler(index, 0);
+        }
+    }
+    lua_pushint(L, cur);
+    return 1;
+}
 
 LUA_FUNCTION(GetControlHandler)
 {
@@ -2471,7 +2632,26 @@ LUA_FUNCTION(GetRelPosition)
     return 3;
 }
 
-LUA_FUNCTION_TODO(SetAbsPosition)
+LUA_FUNCTION(SetAbsPosition)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 6))
+        return 0;
+    EEntity *target = GetEntityArg(L, 1, false, 0);
+    if (!target)
+        return 0;
+    Vector3 pt(GetNumberArg(L, 2, false), GetNumberArg(L, 3, false), GetNumberArg(L, 4, false));
+    bool move = n >= 5 ? GetNumberArg(L, 5, true) != 0 : false;
+    bool noCollide = n >= 6 ? GetNumberArg(L, 6, true) != 0 : false;
+    EPhysics *phys = target->GetPhysics();
+    if (move)
+        phys->MoveTo(pt, 3, 0);
+    else
+        phys->SetAbsPosition(pt, !noCollide);
+    phys->m_a0 = 0;
+    PhysicsChanged(phys, "Lua setpos");
+    return 0;
+}
 
 LUA_FUNCTION(SetRelPosition)
 {
@@ -2567,7 +2747,24 @@ LUA_FUNCTION(GetPosition)
     return GetAbsPosition_impl(L);
 }
 
-LUA_FUNCTION_TODO(SetPosition)
+LUA_FUNCTION(SetPosition)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 5))
+        return 0;
+    EEntity *ent = GetEntityArg(L, 1, false, 0);
+    if (!ent)
+        return 0;
+    Vector3 pt(GetNumberArg(L, 2, false), GetNumberArg(L, 3, false), GetNumberArg(L, 4, false));
+    bool move = n >= 5 ? GetNumberArg(L, 5, true) != 0 : false;
+    if (move)
+        ent->GetPhysics()->MoveTo(pt, 3, 0);
+    else
+        ent->GetPhysics()->SetPosition(pt, true);
+    ent->GetPhysics()->m_a0 = 0;
+    PhysicsChanged(ent->GetPhysics(), "Lua setpos");
+    return 0;
+}
 
 LUA_FUNCTION(GetPlayerPosition)
 {
@@ -2849,7 +3046,35 @@ LUA_FUNCTION(GetMeshIsBackwards)
     return 1;
 }
 
-LUA_FUNCTION_TODO(SetPhysics)
+LUA_FUNCTION(SetPhysics)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EEntity *ent = GetEntityArg(L, 1, false, 0);
+    if (!ent)
+        return 0;
+    int myMode = (int)GetNumberArg(L, 2, false);
+    Vector3 pt = ent->GetPhysics()->GetPosition();
+    switch (myMode) {
+    case 0:
+        break;
+    case 1:
+        ent->GetPhysics()->SetMode(1, true);
+        break;
+    case 2:
+        ent->GetPhysics()->SetMode(1, true);
+        ent->GetPhysics()->SetMode(2, true);
+        ent->GetPhysics()->SetMode(8, true);
+        ent->GetPhysics()->SetMode(0x20, true);
+        break;
+    default:
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    lua_pushnumber(L, 1);
+    return 1;
+}
 
 LUA_FUNCTION_TODO(CreateObject)
 
@@ -2987,7 +3212,28 @@ LUA_FUNCTION(GetEntityFeelCenter)
     return 3;
 }
 
-LUA_FUNCTION_TODO(GetEntityFeelExtent)
+LUA_FUNCTION(GetEntityFeelExtent)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    ETriggerA8 *pMesh = (ETriggerA8 *)GetTriggerA8Arg(L, 1, false);
+    if (!pMesh)
+        return 0;
+    if (pMesh->m_model->m_bounds) {
+        Vector3 extentVal = pMesh->m_model->m_bounds->m_box.GetExtent();
+        lua_pushnumber(L, extentVal.x);
+        lua_pushnumber(L, extentVal.y);
+        lua_pushnumber(L, extentVal.z);
+        return 3;
+    } else {
+        Vector3 size = pMesh->GetBounds().GetExtent();
+        lua_pushnumber(L, size.x);
+        lua_pushnumber(L, size.y);
+        lua_pushnumber(L, size.z);
+        return 3;
+    }
+}
 
 LUA_FUNCTION(GetEntityLookCenter)
 {
@@ -3314,7 +3560,30 @@ LUA_FUNCTION(BitRsh)
     return 1;
 }
 
-LUA_FUNCTION_TODO(BitStore)
+LUA_FUNCTION(BitStore)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 4))
+        return 0;
+    unsigned int value = (unsigned int)GetNumberArg(L, 1, false);
+    unsigned int iBits = (unsigned int)GetNumberArg(L, 2, false);
+    unsigned int myShift = (unsigned int)GetNumberArg(L, 3, false);
+    unsigned int width = (unsigned int)GetNumberArg(L, 4, false);
+    if (width + myShift > 32) {
+        // does not fit into one word, the value stays as it is
+    } else {
+        unsigned int nMask = (1 << width) - 1;
+        if (~nMask & iBits)
+            iBits &= nMask;
+        nMask <<= myShift;
+        iBits <<= myShift;
+        if (value & nMask)
+            value &= ~nMask;
+        value |= iBits;
+    }
+    lua_pushrawnumber(L, value);
+    return 1;
+}
 
 LUA_FUNCTION(BitFetch)
 {

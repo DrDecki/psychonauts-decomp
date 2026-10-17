@@ -66,6 +66,8 @@ struct Vector3 {
     }
     Vector3 Cross(const Vector3 &v) const;
     float Dot(const Vector3 &v) const;
+    float LengthSq() const;
+    void operator/=(float s);
     bool operator!=(const Vector3 &v) const { return x != v.x || y != v.y || z != v.z; }
     Vector3 Rotate(const Vector3 &v) const;
     struct EAxisAngle ToAxisAngle() const;
@@ -278,6 +280,8 @@ public:
     Vector3 GetTotalVelocity() { return m_velocity + m_animVelocity; }
     EMatrix &GetLocalMatrix() { return m_localMatrix ? *m_localMatrix : m_matrix; }
     void SetPosition(const Vector3 &pos, bool teleport);
+    void MoveTo(const Vector3 &pos, int mode, int flags);
+    void SetAbsPosition(const Vector3 &pos, bool collide);
     void SetRotation(const EMatrix &rot, int flags);
     void SetLocalRotation(const EMatrix &rot, int flags);
     void SetMatrix(const EMatrix &m, int flags);
@@ -393,6 +397,7 @@ public:
     void KillAllTimers(EScriptObject *so);
     void DoFile(const char *name, bool once);
     void KillScript(EScriptObject *so);
+    void CreateTimer(EScriptObject *so, float secs, unsigned short id, int repeat, const char *name);
     bool KillTimer(EScriptObject *so, unsigned short id, const char *name);
     struct ETimer *FindTimer(EScriptObject *so, unsigned short id, const char *name, int flags);
     void SendMessage(const char *msg, const char *data, EScriptObject *to, EScriptObject *from, int delay);
@@ -814,7 +819,8 @@ public:
     bool m_runningAtDF;                 // 0x9576
     char pad9577[0x9579 - 0x9577];
     bool m_oxmBuild;                    // 0x9579
-    char pad957a[0x9584 - 0x957a];
+    char pad957a[0x9583 - 0x957a];
+    bool m_skipLevelCheck;              // 0x9583
     bool m_productionLoading;           // 0x9584
     char pad9585[0x95a0 - 0x9585];
     EHUD m_hud;                         // 0x95a0
