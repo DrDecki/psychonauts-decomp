@@ -1,8 +1,8 @@
 # Psychonauts
 
 ![Lua scripts](https://img.shields.io/badge/Lua%20scripts-100%25-brightgreen)
-![Engine](https://img.shields.io/badge/Engine-29.04%25%20(3174%2F10930)-orange)
-![Engine code](https://img.shields.io/badge/Engine%20code-9.04%25-red)
+![Engine](https://img.shields.io/badge/Engine-29.57%25%20(3232%2F10930)-orange)
+![Engine code](https://img.shields.io/badge/Engine%20code-9.53%25-red)
 
 A work-in-progress decompilation of Psychonauts (2005, PC).
 
@@ -18,7 +18,7 @@ This repository does **not** contain any game assets or game code. You need your
 | Part | Matching | Notes |
 | --- | --- | --- |
 | Lua scripts | 106607 / 106607 functions (100 %) | 9955 bytecode chunks from `.lub`, `.lpf`, `.ppf` and `.pkg` files |
-| Engine | 3174 / 10930 functions (29.04 %), 9.04 % of the code | Lua 4.0 runtime in `src/lua` complete, script functions in `src/game` in progress |
+| Engine | 3232 / 10930 functions (29.57 %), 9.53 % of the code | Lua 4.0 runtime in `src/lua` complete, script functions in `src/game` in progress |
 
 ![Progress map](engine/progress.svg)
 
@@ -206,7 +206,7 @@ The engine gives the scripts 1134 C functions (`SetCamera`, `PlaySound`, `SayLin
 
 The first two are identical for every script function, so they match as soon as the macro is right: 1118 wrappers (16 functions run on the normal stack and have none) and 1134 registrations. They are spread over 29 object files, `src/game/*_lua.cpp` has one file per object. The file names are made up, and most of these objects contain more than the script functions.
 
-The real functions are what I'm working on now. 371 of the 1134 match so far, the others are still `LUA_FUNCTION_TODO`, which only declares them. Almost all of them start the same way: check the number of arguments, fetch the arguments with a handful of helpers (`GetNumberArg`, `GetStringArg`, `GetEntityArg`, ...), call into the engine and push the result. The helpers live in `src/game/luafunc.cpp` and all 23 of them match.
+The real functions are what I'm working on now. 427 of the 1134 match so far, the others are still `LUA_FUNCTION_TODO`, which only declares them. Almost all of them start the same way: check the number of arguments, fetch the arguments with a handful of helpers (`GetNumberArg`, `GetStringArg`, `GetEntityArg`, ...), call into the engine and push the result. The helpers live in `src/game/luafunc.cpp` and all 23 of them match.
 
 Because the script functions reach into every part of the engine, the C++ classes they use show up bit by bit. `src/game/engine.h` has what is known so far: members at the offsets the code uses, with padding in between. Classes with RTTI in the executable (`GameApp`, `EEntity`, `ERopeEntity`, ...) keep their real names, everything else is named after what it seems to do. Expect a lot of these names to change.
 
@@ -217,6 +217,8 @@ More things the compiler does that matter here:
 - The square roots are inline assembler (`fld`, `fsqrt`, `fstp`) in an inline function, the CRT `sqrt` would call `_CIsqrt`.
 - Compiled out debug output still evaluates its arguments, like `t ? t->GetHandle() : 0xdead00`, it just never prints them.
 - Some inline functions from the headers are never inlined: the ones with inline assembler (`Vector3::Length`, `Vector3::Normalize`), the ones that return an object built by a constructor (`Vector3::operator+`, `EQuat::operator*`) and a few with loops (`TArray::Clear`, `EArrayBase::Reserve`). The compiler still keeps stack space for their locals in every caller. A frame that is a few bytes too big is how I found them, and with the bodies in the header most of the out of line copies match as well.
+- Parameters of an inline function that are not simply replaced by the argument get their own slot, and those slots come after the temporaries of the function body. Compiled out debug calls are such inline functions with an unused parameter: the argument is still computed and stored, nothing else happens.
+- `EMatrix` is 16 byte aligned (like `D3DXMATRIXA16`) and has a constructor. Without the constructor a returned matrix gets copied once more.
 
 The rest of the engine will follow the usual setup for MSVC games: a Ghidra project to map out the functions, then decompiled C++ compiled with the original compiler and compared function by function, similar to how [isledecomp](https://github.com/isledecomp/isle) does it with `reccmp`.
 

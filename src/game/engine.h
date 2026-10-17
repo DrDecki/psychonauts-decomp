@@ -58,6 +58,15 @@ struct Vector3 {
     }
     void operator+=(const Vector3 &v);
     void EulerToVector(Vector3 *out) const;
+    void Set(const Vector3 &v)
+    {
+        x = v.x;
+        y = v.y;
+        z = v.z;
+    }
+    Vector3 Cross(const Vector3 &v) const;
+    Vector3 Rotate(const Vector3 &v) const;
+    struct EAxisAngle ToAxisAngle() const;
 };
 
 struct EAABB {
@@ -105,7 +114,12 @@ extern bool g_useSSE;
 struct EMatrix;
 void SSETransformPoint(Vector3 *out, const EMatrix *m, const Vector3 *v);
 
-struct EMatrix {
+// 16 byte aligned for the SSE code, like D3DXMATRIXA16
+struct __declspec(align(16)) EMatrix {
+    EMatrix() {}
+    EMatrix GetRotation() const;
+    void GetBillboardAxes(Vector3 *right, Vector3 *up, Vector3 *dir);
+    Vector3 ToEuler() const;
     Vector3 TransformPoint(const Vector3 &v)
     {
         if (g_useSSE) {
@@ -123,6 +137,22 @@ struct EMatrix {
     float m[4][4];
 };
 
+struct EAxisAngle {
+    EAxisAngle() {}
+    EAxisAngle(const Vector3 &a, float an)
+    {
+        axis.x = a.x;
+        axis.y = a.y;
+        axis.z = a.z;
+        angle = an;
+    }
+
+    Vector3 ToEuler() const;
+
+    Vector3 axis;
+    float angle;
+};
+
 struct EQuat {
     EQuat() {}
     EQuat(float x_, float y_, float z_, float w_) { x = x_; y = y_; z = z_; w = w_; }
@@ -136,11 +166,19 @@ struct EQuat {
         return *this;
     }
     void SetEuler(const Vector3 &angles);
+    void SetAxisAngle(const EAxisAngle &aa);
+    EQuat operator*(const EQuat &q) const;
+    Vector3 ToEuler() const;
     EQuat operator*(float s) const { return EQuat(x * s, y * s, z * s, w * s); }
     float x, y, z, w;
 };
 
 extern Vector3 g_zeroVector;
+extern Vector3 g_upVector;
+EMatrix EulerToMatrix(const Vector3 &angles);
+EQuat QuatFromVectors(const Vector3 &from, const Vector3 &to);
+Vector3 GetRandomVector(float maxLen, float minLen, float a, float b);
+extern struct EMatrix g_identityMatrix;
 
 // growable array, the first two words are bit fields
 inline void *MemAlloc(int size, int category)
@@ -192,6 +230,7 @@ public:
         Reserve(sizeof(T), 0);
     }
     T *GetData() { return (T *)m_data; }
+    T &operator[](int i) { return ((T *)m_data)[i]; }
 };
 
 template <class T> TArray<T>::TArray(int category, bool flag)
@@ -231,6 +270,15 @@ public:
     Vector3 GetTotalVelocity() { return m_velocity + m_animVelocity; }
     EMatrix &GetLocalMatrix() { return m_localMatrix ? *m_localMatrix : m_matrix; }
     void SetPosition(const Vector3 &pos, bool teleport);
+    void SetRotation(const EMatrix &rot, int flags);
+    void SetLocalRotation(const EMatrix &rot, int flags);
+    void SetMatrix(const EMatrix &m, int flags);
+    Vector3 MoveBy(const Vector3 &delta)
+    {
+        Vector3 pos = GetLocalMatrix().GetTranslation();
+        SetPosition(pos + delta, false);
+        return GetLocalMatrix().GetTranslation();
+    }
 
     char pad0[0x10];
     EMatrix m_matrix;               // 0x10
@@ -263,6 +311,7 @@ public:
 class EEntity {
 public:
     EEntity *FindEntity(const char *name);
+    void AttachTo(EEntity *parent, const struct EMatrix *offset, const char *bone);
     EScriptObject *GetScriptObject() { return m_scriptObject; }
     EPhysics *GetPhysics() { return m_physics; }
     const char *GetName() { return m_name; }
@@ -306,6 +355,7 @@ public:
     int GetId();
     void SetState(lua_State *L);
     bool CanHandleMessage(const char *msg);
+    bool GetStringField(const char *key, const char **out);
 
     bool IsDead() { return m_dead; }
 
@@ -330,6 +380,11 @@ public:
     void KillAllTimers(EScriptObject *so);
     void DoFile(const char *name, bool once);
     void KillScript(EScriptObject *so);
+    struct ETimer *FindTimer(EScriptObject *so, unsigned short id, const char *name, int flags);
+    void SendMessage(const char *msg, const char *data, EScriptObject *to, EScriptObject *from, int delay);
+    void SetValue(EScriptObject *so, const char *path, EScriptObject *value);
+    void SetValue(EScriptObject *so, const char *path, const char *value);
+    void SetValue(EScriptObject *so, const char *path, float value);
     const char *GetCallerName(lua_State *L);
     void RegisterCutscene(EScriptObject *so);
     void UnregisterCutscene(EScriptObject *so);
@@ -371,13 +426,15 @@ public:
     bool IsZLocked() { return m_zLocked; }
     void SetZLock(bool on);
     void ClearExtraIdles();
+    void LoadMesh(const char *name, int flags, bool keep);
+    void AddExtraIdle(const char *anim, bool a, bool b);
 
     char pad0[0xc - 0x0];
     EScriptObject *m_scriptObject;      // 0xc
     EPhysics *m_player;        // 0x10
     char pad14[0x118 - 0x14];
     EBubble *m_bubble;              // 0x118
-    char pad11c[0x120 - 0x11c];
+    float m_lookBoxDepth;               // 0x11c
     float m_movementScale;          // 0x120
     char pad124[0x128 - 0x124];
     EBackpack *m_backpack;          // 0x128
@@ -385,6 +442,9 @@ public:
     bool m_zLocked;                 // 0x184
     bool m_confused;                // 0x185
     bool m_jumpingEnabled;          // 0x186
+    char pad187;
+    float m_lookBoxWidth;           // 0x188
+    float m_lookBoxHeight;          // 0x18c
 };
 
 // one per player state (slide, ladder, ...), RTTI names like ELadderControlHandler
@@ -540,6 +600,7 @@ class ELightManager;
 class EBlendShapeManager;
 class EResourceManager {
 public:
+    int AddTexture(void *tex, int flags, const char *name);
     EResource *GetById(int id);
     void DumpInfo(bool all);
     void WriteAllToPackFile(bool all, unsigned short flags);
@@ -610,10 +671,12 @@ public:
     ELevelManager *GetLevelManager() { return m_levels; }
     double GetTime() { return m_time; }
     EPlayerControl *GetPlayerControl() { return m_playerControl; }
+    struct EScriptHolder *Get8190() { return m_8190; }
     EWater *GetWater() { return m_water; }
     ELevel *GetLevel() { return GetLevelManager()->m_level; }
     EControlHandler *GetControlHandler(int id);
     struct ECamera *GetCamera();
+    struct ECamera *GetRenderCamera();
     void DumpEntityInfo();
     const char *GetLocalizedText(const char *id);
     EHUD *GetHUD() { return &m_hud; }
@@ -640,9 +703,11 @@ public:
     bool IsRunningAtDF() { return m_runningAtDF; }
     bool IsOXMBuild() { return m_oxmBuild; }
     void ExitClairvoyanceCloud();
+    void ResetLevel(const char *path, int flags);
     float GetRealFrameSecs() { return m_realFrameSecs; }
     int GetCurrentControlHandlerId();
     struct EActionItems *GetActionItems() { return m_actionItems; }
+    struct EInventory *GetInventory() { return (struct EInventory *)m_inventory; }
     void SetSteamRichPresence(const char *key, const char *value);
 
     // members of GameApp
@@ -677,19 +742,22 @@ public:
     double m_time;                      // 0x150
     char pad158[0x190 - 0x158];
     unsigned int m_frameCount;          // 0x190
-    char pad194[0x198 - 0x194];
+    struct ERenderer *m_renderer;       // 0x194
     ESoundManager *m_sound;             // 0x198
     EResourceManager *m_resources;      // 0x19c
     EWater *m_water;                    // 0x1a0
     char pad1a4[0x1b8 - 0x1a4];
     ELightManager *m_lights;            // 0x1b8
-    char pad1bc[0x1cc - 0x1bc];
+    char pad1bc[0x1c0 - 0x1bc];
+    struct EDecalManager *m_decals;     // 0x1c0
+    char pad1c4[0x1cc - 0x1c4];
     ELevelManager *m_levels;            // 0x1cc
     char pad1d0[0x1dc - 0x1d0];
     EFreezeManager *m_freeze;           // 0x1dc
     char pad1e0[0x818c - 0x1e0];
     EPlayerControl *m_playerControl;    // 0x818c
-    char pad8190[0x81b4 - 0x8190];
+    struct EScriptHolder *m_8190;       // 0x8190
+    char pad8194[0x81b4 - 0x8194];
     void *m_unk81b4;                    // 0x81b4
     char pad81b8[0x8238 - 0x81b8];
     struct EActionItems *m_actionItems; // 0x8238
@@ -720,6 +788,9 @@ public:
     bool m_9035_0 : 1;                  // 0x9035
     bool m_9035_1 : 1;
     bool m_journalEnabled : 1;
+    bool m_9035_3 : 1;
+    bool m_9035_4 : 1;
+    bool m_lowDetailMeshes : 1;
     char pad9036[0x9570 - 0x9036];
     int m_language;                     // 0x9570
     char pad9574[0x9576 - 0x9574];
