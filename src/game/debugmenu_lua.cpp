@@ -6,75 +6,7 @@
 #include "win32.h"
 #include <stdlib.h>
 
-class ESoundManager {
-public:
-    virtual void Vf00();
-    virtual void Vf04();
-    virtual void Vf08();
-    virtual void Vf0c();
-    virtual void Vf10();
-    virtual void Vf14();
-    virtual void Vf18();
-    virtual void Vf1c();
-    virtual void Vf20();
-    virtual void Vf24();
-    virtual void Vf28();
-    virtual void Vf2c();
-    virtual void Vf30();
-    virtual void Vf34();
-    virtual void Vf38();
-    virtual void Vf3c();
-    virtual void Vf40();
-    virtual void Vf44();
-    virtual void Vf48();
-    virtual void Vf4c();
-    virtual void Vf50();
-    virtual void Vf54();
-    virtual void Vf58();
-    virtual void Vf5c();
-    virtual void Vf60();
-    virtual void Vf64();
-    virtual void Vf68();
-    virtual void Vf6c();
-    virtual void Vf70();
-    virtual void Vf74();
-    virtual void Vf78();
-    virtual void Vf7c();
-    virtual void Vf80();
-    virtual void Vf84();
-    virtual void Vf88();
-    virtual void Vf8c();
-    virtual void Vf90();
-    virtual void Vf94();
-    virtual void Vf98();
-    virtual void Vf9c();
-    virtual void Vfa0();
-    virtual void Vfa4();
-    virtual void Vfa8();
-    virtual void Vfac();
-    virtual void Vfb0();
-    virtual void Vfb4();
-    virtual void Vfb8();
-    virtual void Vfbc();
-    virtual void Vfc0();
-    virtual void Vfc4();
-    virtual void Vfc8();
-    virtual void Vfcc();
-    virtual void Vfd0();
-    virtual void Vfd4();
-    virtual void Vfd8();
-    virtual void Vfdc();
-    virtual void Vfe0();
-    virtual void Vfe4();
-    virtual void Vfe8();
-    virtual void Vfec();
-    virtual void Vff0();
-    virtual void Vff4();
-    virtual void Vff8();
-    virtual void Vffc();
-    virtual void DumpSounds(bool all);  // 0x100
-    virtual void DumpChannels();        // 0x104
-};
+// Shared ESoundManager layout is declared in engine.h.
 
 class ELightManager {
 public:

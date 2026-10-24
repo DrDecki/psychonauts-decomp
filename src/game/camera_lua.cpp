@@ -1,6 +1,7 @@
 // Script functions, file name made up.
-// Only the wrappers are decompiled so far, the bodies are still missing.
+// Default FOV body reconstructed; other bodies remain missing.
 
+#include "engine.h"
 #include "luafunc.h"
 
 
@@ -24,7 +25,12 @@ LUA_FUNCTION_TODO(SetCameraFieldOfView)
 
 LUA_FUNCTION_TODO(GetCameraFieldOfView)
 
-LUA_FUNCTION_TODO(GetCameraDefaultFOV)
+LUA_FUNCTION(GetCameraDefaultFOV)
+{
+    float fov = 104.0f;
+    lua_pushnumber(L, fov);
+    return 1;
+}
 
 LUA_FUNCTION_TODO(GetCameraViewVector)
 

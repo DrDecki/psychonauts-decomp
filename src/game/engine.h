@@ -325,6 +325,7 @@ public:
 class EEntity {
 public:
     EEntity *FindEntity(const char *name);
+    void StopSounds();            // local verified native 0x00421520; provisional name
     void AttachTo(EEntity *parent, const struct EMatrix *offset, const char *bone);
     EScriptObject *GetScriptObject() { return m_scriptObject; }
     EPhysics *GetPhysics() { return m_physics; }
@@ -350,12 +351,19 @@ public:
     char pad14[0x1c - 0x14];
     EClassInfo *m_class;            // 0x1c
     const char *m_name;             // 0x20
-    char pad24[0x64 - 0x24];
+    char pad24[0x38 - 0x24];
+    void *m_soundInstance;          // local binary-verified +0x38
+    char pad3c[0x64 - 0x3c];
     union {
         unsigned int m_flags;       // 0x64
         struct {
             unsigned int m_flagBits : 5;
             unsigned int m_sleeping : 1;
+        };
+        struct {
+            unsigned int m_unknownFlagsLow : 2;
+            unsigned int m_echo : 1;
+            unsigned int m_unknownFlagsHigh : 29;
         };
     };
 };
@@ -663,6 +671,80 @@ public:
     ELevel *m_level;
 };
 
+// Partial sound interface. Class name corroborated by Steam-reference RTTI;
+// method names/signatures are reconstructed from observed binding dispatch.
+// Unidentified slots are placeholders only. See docs/native-session-20261017.md.
+class ESoundManager {
+public:
+    virtual void Vf00();
+    virtual void Vf04();
+    virtual void Vf08();
+    virtual void Vf0c();
+    virtual void Vf10();
+    virtual void Vf14();
+    virtual void Vf18();
+    virtual void Vf1c();
+    virtual void *FindSound(const char *name); // 0x20; provisional name/handle type
+    virtual void Vf24();
+    virtual const char *GetSoundName(void *sound); // 0x28; observed pointer return
+    virtual void Vf2c();
+    virtual void Stop(void *sound, void *entity_instance, void *sound_instance); // 0x30; handle semantics provisional
+    virtual bool IsPlaying(void *sound); // 0x34; provisional method name
+    virtual void StopOnInstance(void *instance); // 0x38; provisional name
+    virtual void Vf3c();
+    virtual int GetCueLength(void *sound); // 0x40; result type/units provisional
+    virtual void Vf44();
+    virtual bool IsAvailable();     // 0x48; provisional name, AL result observed
+    virtual void Vf4c();
+    virtual void Vf50();
+    virtual bool IsDolbyDigital();  // 0x54
+    virtual void StopAll();         // 0x58; binding null-checks the manager
+    virtual void StopCategory(int category);    // 0x5c
+    virtual void Vf60();
+    virtual void MuteCategory(int category, float seconds);    // 0x64
+    virtual void Vf68();
+    virtual void UnmuteCategory(int category);  // 0x6c
+    virtual void Vf70();
+    virtual void PauseAll();         // 0x74
+    virtual void PauseCategory(int category);   // 0x78
+    virtual void ResumeAll();        // 0x7c
+    virtual void ResumeCategory(int category);  // 0x80
+    virtual void PauseNonMenu();     // 0x84
+    virtual void ResumeNonMenu();    // 0x88
+    virtual void Vf8c();
+    virtual void Vf90();
+    virtual void SetCategoryVolume(int category, float volume, float time);  // 0x94
+    virtual void Vf98();
+    virtual void SetMusicVolume(float volume, float time);  // 0x9c
+    virtual void SetFXVolume(float volume, float time);     // 0xa0
+    virtual void SetVoiceVolume(float volume, float time);  // 0xa4
+    virtual void Vfa8();
+    virtual void Vfac();
+    virtual void Vfb0();
+    virtual void Vfb4();
+    virtual void Vfb8();
+    virtual void Vfbc();
+    // Third setter argument is an observed zero DWORD, semantic type unknown.
+    virtual void SetTriggerVariable(unsigned int variable, float value, unsigned int unknown); // 0xc0
+    virtual float GetTriggerVariable(unsigned int variable); // 0xc4
+    virtual void SetParameterControl(const char *name, float value, void *instance, void *sound); // 0xc8; handle meanings provisional
+    virtual void Vfcc();
+    virtual void Vfd0();
+    virtual void Vfd4();
+    virtual void SetDistanceFactor(float factor);  // 0xd8
+    virtual void SetRolloffFactor(float factor);   // 0xdc
+    virtual void SetEcho(void *instance, bool enable);  // 0xe0
+    virtual void Vfe4();
+    virtual void Vfe8();
+    virtual void Vfec();
+    virtual void Vff0();
+    virtual void Vff4();
+    virtual void Vff8();
+    virtual void Vffc();
+    virtual void DumpSounds(bool all); // upstream observed slot 0x100
+    virtual void DumpChannels();       // upstream observed slot 0x104
+};
+
 class GameApp {
 public:
     virtual void Vf00();
@@ -729,6 +811,12 @@ public:
     struct EActionItems *GetActionItems() { return m_actionItems; }
     struct EInventory *GetInventory() { return (struct EInventory *)m_inventory; }
     void SetSteamRichPresence(const char *key, const char *value);
+    void SetSoundCameraRelative(bool relative, bool second)
+    {
+        m_soundCameraRelative = relative;
+        m_soundCameraSecond = second;
+    }
+
 
     // members of GameApp
     // start 0x8
@@ -807,12 +895,21 @@ public:
     struct ELine2DManager *m_lines2d;   // 0x8c84
     struct EText3DManager *m_text3d;    // 0x8c88
     char pad8c8c[0x9035 - 0x8c8c];
-    bool m_9035_0 : 1;                  // 0x9035
-    bool m_9035_1 : 1;
-    bool m_journalEnabled : 1;
-    bool m_9035_3 : 1;
-    bool m_9035_4 : 1;
-    bool m_lowDetailMeshes : 1;
+    union {
+        struct {
+            bool m_9035_0 : 1;                  // 0x9035
+            bool m_9035_1 : 1;
+            bool m_journalEnabled : 1;
+            bool m_9035_3 : 1;
+            bool m_9035_4 : 1;
+            bool m_lowDetailMeshes : 1;
+        };
+        struct {
+            unsigned char m_unknownSoundFlags : 6;
+            unsigned char m_soundCameraRelative : 1;
+            unsigned char m_soundCameraSecond : 1;
+        };
+    };
     char pad9036[0x9570 - 0x9036];
     int m_language;                     // 0x9570
     char pad9574[0x9576 - 0x9574];
