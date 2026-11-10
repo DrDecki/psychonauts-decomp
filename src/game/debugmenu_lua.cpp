@@ -8,11 +8,6 @@
 
 // Shared ESoundManager layout is declared in engine.h.
 
-class ELightManager {
-public:
-    void DumpInfo();
-};
-
 class EBlendShapeManager {
 public:
     void DumpInfo();

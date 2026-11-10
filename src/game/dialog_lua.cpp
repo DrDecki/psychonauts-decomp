@@ -118,18 +118,6 @@ struct ECredits {
 
 #include <string.h>
 
-struct ESaylineManager {
-    bool IsDone(EScriptObject *speaker);
-    void Remove(bool all);
-    EScriptObject *GetSpeaker();
-
-    char pad0[0xc];
-    bool m_resetPosition;           // 0x0c
-    char padd[0x1c - 0xd];
-    Vector2 m_position;             // 0x1c
-};
-
-
 struct EText3DManager {
     void AttachToBone(void *text, ETriggerBase *ent, const char *bone);
     void Remove3(void *text);
@@ -144,21 +132,6 @@ struct EHUDCounter {
 
     char pad0[0xc];
     int m_count;                    // 0x0c
-};
-
-struct EInputRecorder {
-    void RecordUseSaveGame(const char *name);
-    void PlaybackUseSaveGame(const char *name);
-    void PlaybackFile(const char *name);
-    void StopRecording();
-    void StopPlayback();
-    void Playback(const char *name, int flags);
-
-    char pad0[0x12];
-    bool m_showInfo;                // 0x12
-    char pad13[0x19 - 0x13];
-    bool m_recording;               // 0x19
-    bool m_playing;                 // 0x1a
 };
 
 struct ELine2DManager {
