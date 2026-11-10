@@ -152,6 +152,7 @@ struct __declspec(align(16)) EMatrix {
         }
     }
     Vector3 &GetTranslation() { return *(Vector3 *)m[3]; }
+    EMatrix operator*(const EMatrix &b) const;
 
     float m[4][4];
 };
@@ -205,6 +206,7 @@ extern Vector3 g_zeroVector;
 extern EQuat g_identityQuat;
 extern Vector3 g_upVector;
 EMatrix EulerToMatrix(const Vector3 &angles);
+EMatrix TranslationMatrix(const Vector3 &pos);
 EQuat QuatFromVectors(const Vector3 &from, const Vector3 &to);
 Vector3 GetRandomVector(float maxLen, float minLen, float a, float b);
 extern struct EMatrix g_identityMatrix;
@@ -388,11 +390,15 @@ public:
     const char *m_name;
     int m_type;
     bool IsDerivedFrom(EClassInfo *base);
+
+    char pad8[0x10 - 0x8];
+    EEntity *(*m_create)(class EDomain *domain, const char *name);  // 0x10
 };
 
 class EEntity {
 public:
     EEntity *FindEntity(const char *name);
+    bool Load(const char *type, const char *name, int a, int b, int c, bool d);
     void StopSounds();            // local verified native 0x00421520; provisional name
     class ESplineController *getSplineController();
     Vector3 GetPosition() { return GetPhysics()->GetPosition(); }
@@ -435,7 +441,8 @@ public:
     char pad14[0x1c - 0x14];
     EClassInfo *m_class;            // 0x1c
     const char *m_name;             // 0x20
-    char pad24[0x38 - 0x24];
+    char pad24[0x34 - 0x24];
+    class EDomain *m_domain;        // 0x34
     void *m_soundInstance;          // local binary-verified +0x38
     char pad3c[0x64 - 0x3c];
     union {
@@ -450,6 +457,7 @@ public:
             unsigned int m_unknownFlagsHigh : 29;
         };
     };
+    class ESplineCollision *m_splineCollision;     // 0x68
 };
 
 class ETriggerBase : public EEntity {
@@ -1135,7 +1143,7 @@ public:
     char pad819c[0x81a4 - 0x819c];
     class EPsiBlastManager *m_psiBlasts; // 0x81a4
     char pad81a8[0x81b4 - 0x81a8];
-    void *m_unk81b4;                    // 0x81b4
+    class EDomain *m_mainDomain;        // 0x81b4
     char pad81b8[0x8238 - 0x81b8];
     struct EActionItems *m_actionItems; // 0x8238
     class EPlayer *m_player;                  // 0x823c

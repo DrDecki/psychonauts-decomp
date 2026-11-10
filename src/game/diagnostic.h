@@ -66,6 +66,7 @@ class DiagnosticSink {
 public:
     void Write(const char *text); // 0x004024d0
     void VPrintf(const char *format, va_list args); // 0x00402560
+    void Printf(const char *format, ...); // 0x00402530
 
     char pad0[0x1c];
     DiagnosticStream m_stream;    // observed receiver at sink +0x1c
@@ -73,5 +74,6 @@ public:
 
 extern DiagnosticSink *g_diagnosticSink; // 0x00781fd8
 void NativeDiagnostic(const char *format, ...); // 0x00402300
+DiagnosticSink *GetDiagnosticSink(); // 0x00402400
 
 #endif

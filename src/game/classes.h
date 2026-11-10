@@ -9,13 +9,13 @@
 // virtual functions of the entities, slots are known only where the scripts call them
 class EEntityVirtuals {
 public:
-    virtual void Vf00();
-    virtual void Vf04();
+    virtual void Init(class EDomain *domain);   // 0x00
+    virtual ~EEntityVirtuals();                 // 0x04
     virtual void Vf08();
     virtual void Vf0c();
     virtual bool HasMesh();         // 0x10
     virtual void Vf14();
-    virtual void Vf18();
+    virtual void UpdateCollision();             // 0x18
     virtual void Vf1c();
     virtual void Vf20();
     virtual void Vf24();
@@ -293,10 +293,16 @@ struct EScriptHolder {
 
 class EMeshManager {
 public:
-    void PreloadMesh(const char *name, int mode);
+    bool PreloadMesh(const char *name, int mode);
 };
 extern EMeshManager *g_meshManager;
 void CreateMeshManager();
+inline EMeshManager *GetMeshManager()
+{
+    if (!g_meshManager)
+        CreateMeshManager();
+    return g_meshManager;
+}
 
 // a Vector3 whose default constructor clears it (back to front)
 struct EZeroVector3 : public Vector3 {
@@ -969,6 +975,21 @@ public:
     EDataArray<EPathEntry> *m_paths;    // 0x00
 };
 
+// Collision along a spline, used for rails and tightropes (EEntity +0x68)
+class ESplineCollision {
+public:
+    void *operator new(size_t size) { return _aligned_malloc(size, 16); }
+    ESplineCollision(EEntity *owner);
+    void setRadius(float radius);
+    void clearSkips();
+    Vector3 parametricToPoint(float t, int flags);
+    void createFromPoints(TArray<Vector3> *points, TArray<Vector3> *normals, int a, int b, int c);
+
+    char pad0[0x4];
+    float m_radius;                 // 0x04
+    char pad8[0x100 - 0x8];
+};
+
 // Moves an entity along a spline path. Every entity can have one.
 class ESplineController {
 public:
@@ -1114,6 +1135,34 @@ public:
     EPathManager *m_pathManager;    // 0x9c
 };
 
+Color UnpackColor(unsigned int packed);
+
+// the script object that runs the current Lua thread
+inline EScriptObject *GetThreadScript(lua_State *L) { return *(EScriptObject **)((char *)L + 0x20); }
+
+template <class T> inline T *CreateEntity(class EDomain *domain, const char *name)
+{
+    T *result;
+    EEntity *e = T::s_class.m_create(domain, name);
+    e->m_class = &T::s_class;
+    ((EEntityVirtuals *)e)->Init(domain);
+    result = (T *)e;
+    return result;
+}
+
+// where the particles of an emitter come from, type 6 is text
+class EParticleSource {
+public:
+    int GetType() { return m_type; }
+    void SetText(const char *text);
+    void AddFlags(unsigned int flags) { m_flags |= flags; }
+    void RemoveFlags(unsigned int flags) { m_flags &= ~flags; }
+
+    char pad0[0x8];
+    int m_type;                     // 0x08
+    unsigned int m_flags;           // 0x0c
+};
+
 // RTEngine/ParticleEmitterEntity.cpp
 class EParticleEmitter {
 public:
@@ -1146,10 +1195,10 @@ public:
     virtual void Vf60();
     virtual void Vf64();
     virtual void SetMaxParticles(int count);    // 0x68
-    virtual void Vf6c();
+    virtual void Rebuild();                     // 0x6c
     virtual void Reset();                       // 0x70
     virtual bool IsTimed();                     // 0x74
-    virtual void Vf78();
+    virtual bool IsMeshEmitter();               // 0x78
     virtual void Vf7c();
     virtual void Tick(float secs);              // 0x80
 
@@ -1180,6 +1229,12 @@ public:
     void SetParticleForce(float x, float y, float z);
     void SetPaused(bool on);
     void GetTexAnimInfo(int *a, int *b, int *c, float *d);
+    void SetRotation(const Vector3 &min, const Vector3 &max, bool random);
+    void SetTexAnimInfo(int a, int b, int c, float rate, bool flag);
+    void RestartTexAnim(int frame);
+    void Prespawn(int count);
+    int GetMaxParticles() { return m_maxParticles; }
+    class EParticleSource *GetSource() { return m_source; }
     void SetTexAnimInfo2D(int a, int b, int c, int d, float rate, bool flag);
     void SetActiveStage(unsigned int stage)
     {
@@ -1218,7 +1273,10 @@ public:
     float m_sizeEnd;                // 0xdc
     float m_stageSizeStart;         // 0xe0
     float m_stageSizeEnd;           // 0xe4
-    char pade8[0xf8 - 0xe8];
+    char pade8[0xec - 0xe8];
+    unsigned int m_startColor;      // 0xec, packed
+    unsigned int m_endColor;        // 0xf0, packed
+    char padf4[0xf8 - 0xf4];
     float m_ppsMin;                 // 0xf8
     float m_ppsMax;                 // 0xfc
     float m_lifetimeMin;            // 0x100
@@ -1235,7 +1293,8 @@ public:
     unsigned int m_blendMode;       // 0x128
     char pad12c[0x130 - 0x12c];
     float m_bounceFactor;           // 0x130
-    char pad134[0x154 - 0x134];
+    char pad134[0x150 - 0x134];
+    class EParticleSource *m_source;    // 0x150
     Vector3 m_force;                // 0x154
     char pad160[0x168 - 0x160];
     Color m_materialColor;          // 0x168
@@ -1256,7 +1315,11 @@ class EMeshEmitter : public EParticleEmitter {
 public:
     static EClassInfo s_class;
 
-    char pad198[0x1a8 - 0x198];
+    EEntity *GetMeshEntity() { return m_meshEntity; }
+
+    char pad198[0x1a0 - 0x198];
+    EEntity *m_meshEntity;          // 0x1a0
+    char pad1a4[0x1a8 - 0x1a4];
     char m_meshName[0x200];         // 0x1a8
 };
 
@@ -1301,10 +1364,10 @@ public:
     virtual void Vf84();
     virtual void Vf88();
     virtual void Vf8c();
-    virtual void Vf90();
+    virtual void DrawLine(EMatrix *mat, const Vector3 &start, const Vector3 &end, int segments, float width, const Color &color);  // 0x90
     virtual void Vf94();
-    virtual void Vf98();
-    virtual void Vf9c();
+    virtual void DrawCircle(EMatrix *mat, float radius, const Color &color);  // 0x98
+    virtual void DrawEllipse(EMatrix *mat, float a, float b, const Color &color);  // 0x9c
     virtual void Vfa0();
     virtual void Deactivate();                  // 0xa4
 
@@ -1318,19 +1381,76 @@ public:
     float m_density;                // 0x1c8
 };
 
-class EParticleAffector {
+// the soft line emitter, a variant of the line emitter
+class ESoftLineParticleEmitter {
+public:
+    static EClassInfo s_class;
+};
+
+class EParticleAffector : public EEntity {
 public:
     static EClassInfo s_class;
 
-    char pad0[0x6c];
+    void Setup(int type, float radius, float falloff, float x, float y, float z);
+    void SetFlag(unsigned int flag, bool on)
+    {
+        if (on)
+            m_type |= flag;
+        else
+            m_type &= ~flag;
+    }
+
     unsigned int m_type;            // 0x6c
     char pad70[0x88 - 0x70];
     float m_force1;                 // 0x88
     float m_force3;                 // 0x8c
     float m_force2;                 // 0x90
-    char pad94[0xac - 0x94];
+    float m_width;                  // 0x94
+    float m_height;                 // 0x98
+    float m_widthSq;                // 0x9c
+    float m_heightSq;               // 0xa0
+    float m_invWidthSq;             // 0xa4
+    float m_invHeightSq;            // 0xa8
     Vector3 m_turbulence;           // 0xac
     bool m_active;                  // 0xb8
+};
+
+// array that grows when an element past the end is asked for
+template <class T> class EGrowArray : public EArrayBase {
+public:
+    void SetCount(unsigned int count, int flag);
+    T &operator[](unsigned int i) { return ((T *)m_data)[i]; }
+};
+
+struct EEmitterEntry {
+    EParticleEmitter *m_emitter;
+    EParticleAffector *m_affectors[2];
+};
+
+// holds particle emitters and affectors for scripts, the TE* functions
+class EEmitterGroup {
+public:
+    static EClassInfo s_class;
+
+    EEmitterEntry &GetValidEntry(unsigned int i)
+    {
+        if (i >= m_entries.m_count)
+            m_entries.SetCount(i + 1, 0);
+        return m_entries[i];
+    }
+    EEmitterEntry &GetEntry(unsigned int i)
+    {
+        if (i >= m_entries.m_count)
+            m_entries.SetCount(i + 1, 0);
+        {
+            // the original keeps this much stack space here, the reason is unknown
+            char unused[0x24];
+        }
+        return m_entries[i];
+    }
+
+    char pad0[0x6c];
+    EGrowArray<EEmitterEntry> m_entries;    // 0x6c
 };
 
 #endif

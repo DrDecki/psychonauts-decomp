@@ -11,7 +11,7 @@ enum {
 
 class ETriggerVolume {
 public:
-    virtual void Delete(int flags);                     // 0x00
+    virtual ~ETriggerVolume();                          // 0x00
     virtual bool AddListener(EScriptObject *listener);  // 0x04
     virtual void Vf08();
     virtual void Vf0c();
@@ -112,6 +112,11 @@ static ETriggerSphere *GetTriggerSphereArg(lua_State *L, int idx, bool optional)
         return 0;
     }
 }
+
+class ETriggerMesh : public ETriggerVolume {
+};
+
+static ETriggerMesh *GetTriggerMeshArg(lua_State *L, int idx, bool optional);
 
 static void PushTriggerOBB(lua_State *L, ETriggerOBB *obb)
 {
@@ -285,7 +290,7 @@ LUA_FUNCTION(TriggerOBB_Lookup)
         return 0;
     ETriggerOBB *pObb1 = 0;
     if (lua_type(L, 1) == LUA_TNIL) {
-        pObb1 = ((EOBBManager *)g_game->m_unk81b4)->FindOBB(name);
+        pObb1 = ((EOBBManager *)g_game->m_mainDomain)->FindOBB(name);
     } else {
         ETriggerA8 *owner = (ETriggerA8 *)GetTriggerA8Arg(L, 1, false);
         if (!owner)
@@ -360,7 +365,29 @@ LUA_FUNCTION_TODO(TriggerOBB_SetExtent)
 
 LUA_FUNCTION_TODO(TriggerMesh_New)
 
-LUA_FUNCTION_TODO(TriggerMesh_Delete)
+LUA_FUNCTION(TriggerMesh_Delete)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    ETriggerMesh *pMesh = GetTriggerMeshArg(L, 1, false);
+    if (!pMesh)
+        return 0;
+    delete pMesh;
+    return 0;
+}
+
+static ETriggerMesh *GetTriggerMeshArg(lua_State *L, int idx, bool optional)
+{
+    ETriggerVolume *t = GetTriggerVolumeArg(L, idx, optional);
+    if (t && t->GetType() == TRIGGER_MESH) {
+        return (ETriggerMesh *)t;
+    } else {
+        if (!optional)
+            LuaCallSite(L);
+        return 0;
+    }
+}
 
 LUA_FUNCTION_TODO(GetTriggerVolumeBounds)
 

@@ -1228,7 +1228,7 @@ LUA_FUNCTION(DomainExists)
         lua_pushnumber(L, 0);
         return 1;
     }
-    EDomain *domain = ((EDomainManager *)g_game->m_unk81b4)->FindDomain(str);
+    EDomain *domain = ((EDomainManager *)g_game->m_mainDomain)->FindDomain(str);
     int exists = 0;
     if (domain)
         exists = 1;
@@ -1295,7 +1295,7 @@ LUA_FUNCTION(CreateChildDomain)
     EDomain *existing = g_game->GetLevelManager()->GetDomainManager()->FindDomain(szName);
     if (existing)
         LuaCallSite(L);
-    EDomain *parent = ((EDomainManager *)g_game->m_unk81b4)->FindDomain(theParentName);
+    EDomain *parent = ((EDomainManager *)g_game->m_mainDomain)->FindDomain(theParentName);
     if (!parent)
         return 0;
     parent->CreateChild(szName, 0);

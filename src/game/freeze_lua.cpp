@@ -18,7 +18,7 @@ LUA_FUNCTION(AddFrozen)
     EQuat qOrient(*pMatrix);
     Vector3 localPos(0.0f, 20.0f, 200.0f);
     Vector3 spawnPos = pMatrix->TransformPoint(localPos);
-    g_game->m_freeze->AddFrozen(szName, &arg2, g_game->m_unk81b4, spawnPos, qOrient);
+    g_game->m_freeze->AddFrozen(szName, &arg2, g_game->m_mainDomain, spawnPos, qOrient);
     return 0;
 }
 

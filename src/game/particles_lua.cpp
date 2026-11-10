@@ -10,15 +10,162 @@
 
 // per-file copies of the angle conversion factors, set up at startup
 extern float g_peDegToRad;
+
+// names for emitters the scripts create without one
+static int s_emitterCount;
+static char s_emitterName[0x32];
 extern float g_peRadToDeg;
 
-LUA_FUNCTION_TODO(CreateParticleEmitter)
+LUA_FUNCTION(CreateParticleEmitter)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 3))
+        return 0;
+    const char *name = GetStringArg(L, 1, false);
+    int newCountVal = (int)GetNumberArg(L, 2, false);
+    int prespawnVal = n >= 3 ? (int)GetNumberArg(L, 3, true) : 0;
+    if (!name || !strlen(name)) {
+        LuaCallSite(L);
+        s_emitterCount++;
+        _snprintf(s_emitterName, 0x31, "ParticleEmitter%d", s_emitterCount);
+        s_emitterName[0x31] = 0;
+        while (GetScriptManager()->FindByName(s_emitterName)) {
+            s_emitterCount++;
+            _snprintf(s_emitterName + 15, 0x22, "%d", s_emitterCount);
+        }
+        name = s_emitterName;
+    }
+    EParticleEmitter *myPe = 0;
+    EDomain *domain = 0;
+    EScriptObject *mySoVal = GetThreadScript(L);
+    if (mySoVal) {
+        EEntity *ent = mySoVal->GetEntity();
+        if (ent)
+            domain = ent->m_domain;
+    }
+    if (!domain)
+        domain = g_game->GetLevelManager()->GetDomainManager()->FindDomain("Level");
+    myPe = CreateEntity<EParticleEmitter>(domain, name);
+    myPe->SetMaxParticles(newCountVal);
+    if (prespawnVal)
+        myPe->Prespawn(prespawnVal);
+    lua_pushrawnumber(L, (int)myPe);
+    return 1;
+}
 
-LUA_FUNCTION_TODO(CreateLineParticleEmitter)
+LUA_FUNCTION(CreateLineParticleEmitter)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 3))
+        return 0;
+    bool done = false;
+    const char *name = GetStringArg(L, 1, false);
+    int theCount = (int)GetNumberArg(L, 2, false);
+    bool soft = n >= 3 ? GetNumberArg(L, 3, true) != 0 : false;
+    if (!name || !strlen(name)) {
+        LuaCallSite(L);
+        s_emitterCount++;
+        _snprintf(s_emitterName, 0x31, "ParticleEmitter%d", s_emitterCount);
+        s_emitterName[0x31] = 0;
+        while (GetScriptManager()->FindByName(s_emitterName)) {
+            s_emitterCount++;
+            _snprintf(s_emitterName + 15, 0x22, "%d", s_emitterCount);
+        }
+        name = s_emitterName;
+    }
+    EParticleEmitter *thePe = 0;
+    EDomain *myDomain = 0;
+    EScriptObject *soVal = GetThreadScript(L);
+    if (soVal) {
+        EEntity *ent = soVal->GetEntity();
+        if (ent)
+            myDomain = ent->m_domain;
+    }
+    if (!myDomain)
+        myDomain = g_game->GetLevelManager()->GetDomainManager()->FindDomain("Level");
+    if (soft) {
+        thePe = (EParticleEmitter *)CreateEntity<ESoftLineParticleEmitter>(myDomain, name);
+        thePe->SetMaxParticles(theCount);
+    } else {
+        thePe = (EParticleEmitter *)CreateEntity<ELineParticleEmitter>(myDomain, name);
+        thePe->SetMaxParticles(theCount);
+    }
+    lua_pushrawnumber(L, (int)thePe);
+    return 1;
+}
 
-LUA_FUNCTION_TODO(CreateMeshEmitter)
+LUA_FUNCTION(CreateMeshEmitter)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 3, 4))
+        return 0;
+    const char *newName = GetStringArg(L, 1, false);
+    const char *curMesh = GetStringArg(L, 2, false);
+    int theCount = (int)GetNumberArg(L, 3, false);
+    int prespawn = n >= 4 ? (int)GetNumberArg(L, 4, true) : 0;
+    if (!newName || !strlen(newName)) {
+        LuaCallSite(L);
+        s_emitterCount++;
+        _snprintf(s_emitterName, 0x31, "ParticleEmitter%d", s_emitterCount);
+        s_emitterName[0x31] = 0;
+        while (GetScriptManager()->FindByName(s_emitterName)) {
+            s_emitterCount++;
+            _snprintf(s_emitterName + 15, 0x22, "%d", s_emitterCount);
+        }
+        newName = s_emitterName;
+    }
+    if (!curMesh || !strlen(curMesh)) {
+        GetDiagnosticSink()->Printf("ScriptVM: CreateMeshEmitter error: invalid newName - '%s'", curMesh ? curMesh : "NULL");
+        DumpLuaStack(L, 0, 0);
+        return 0;
+    }
+    EDomain *myDomain = 0;
+    EScriptObject *so = GetThreadScript(L);
+    if (so) {
+        EEntity *ent = so->GetEntity();
+        if (ent)
+            myDomain = ent->m_domain;
+    }
+    if (!myDomain)
+        myDomain = g_game->m_mainDomain;
+    bool loaded = GetMeshManager()->PreloadMesh(curMesh, 4);
+    if (!loaded) {
+        LuaCallSite(L);
+        return 0;
+    }
+    EMeshEmitter *peVal = 0;
+    peVal = CreateEntity<EMeshEmitter>(myDomain, newName);
+    strncpy(peVal->m_meshName, curMesh, 0x1ff);
+    peVal->m_meshName[0x1ff] = 0;
+    peVal->SetMaxParticles(theCount);
+    peVal->Rebuild();
+    if (prespawn)
+        peVal->Prespawn(prespawn);
+    lua_pushrawnumber(L, (int)peVal);
+    return 1;
+}
 
-LUA_FUNCTION_TODO(GetMeshEmitterMeshEntity)
+LUA_FUNCTION(GetMeshEmitterMeshEntity)
+{
+    int aN = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    EEntity *ent = GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!ent)
+        return 0;
+    if (!ent->IsA(&EParticleEmitter::s_class)) {
+        ScriptError("ScriptVM: GetMeshEmitterMeshEntity called on non ParticleEmitter entity");
+        return 0;
+    }
+    EParticleEmitter *newPe = (EParticleEmitter *)ent;
+    if (!newPe->IsMeshEmitter()) {
+        ScriptError("ScriptVM: GetMeshEmitterMeshEntity called on non MeshEmitter entity");
+        return 0;
+    }
+    EMeshEmitter *mesh = (EMeshEmitter *)newPe;
+    lua_getref(L, mesh->GetMeshEntity()->GetScriptObject()->m_ref);
+    return 1;
+}
 
 LUA_FUNCTION(PEDestroyEmitter)
 {
@@ -248,7 +395,25 @@ LUA_FUNCTION(PEGetConeAngle)
     return 2;
 }
 
-LUA_FUNCTION_TODO(PESetParticleRotation)
+LUA_FUNCTION(PESetParticleRotation)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 3, 4))
+        return 0;
+    EParticleEmitter *pPe = (EParticleEmitter *)GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!pPe)
+        return 0;
+    float aLoArg = GetNumberArg(L, 2, false);
+    float hi = GetNumberArg(L, 3, false);
+    bool curRandom = n >= 4 ? GetNumberArg(L, 4, true) != 0 : false;
+    Vector3 aMaxRot(0.0f, 0.0f, hi);
+    Vector3 newMinRot(0.0f, 0.0f, aLoArg);
+    pPe->SetRotation(newMinRot, aMaxRot, curRandom);
+    {
+        char unused[0x28];
+    }
+    return 0;
+}
 
 LUA_FUNCTION(PEGetParticleRotation)
 {
@@ -265,7 +430,29 @@ LUA_FUNCTION(PEGetParticleRotation)
     return 2;
 }
 
-LUA_FUNCTION_TODO(PESetParticle3DRotation)
+LUA_FUNCTION(PESetParticle3DRotation)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 7, 8))
+        return 0;
+    EParticleEmitter *pPe = (EParticleEmitter *)GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!pPe)
+        return 0;
+    float minX = GetNumberArg(L, 2, false);
+    float maxX = GetNumberArg(L, 3, false);
+    float minY = GetNumberArg(L, 4, false);
+    float theMaxY = GetNumberArg(L, 5, false);
+    float myMinZ = GetNumberArg(L, 6, false);
+    float myMaxZ = GetNumberArg(L, 7, false);
+    bool myRandom = n >= 8 ? GetNumberArg(L, 8, true) != 0 : false;
+    Vector3 pMaxRot(maxX, theMaxY, myMaxZ);
+    Vector3 newMinRot(minX, minY, myMinZ);
+    pPe->SetRotation(newMinRot, pMaxRot, myRandom);
+    {
+        char unused[0x28];
+    }
+    return 0;
+}
 
 LUA_FUNCTION(PESetParticleSpeed)
 {
@@ -349,7 +536,24 @@ LUA_FUNCTION(PESetStartColor)
     return 0;
 }
 
-LUA_FUNCTION_TODO(PEGetStartColor)
+LUA_FUNCTION(PEGetStartColor)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    EParticleEmitter *pPe = (EParticleEmitter *)GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!pPe)
+        return 0;
+    Color theColor = UnpackColor(pPe->m_startColor);
+    lua_pushnumber(L, theColor.r * 255.0);
+    lua_pushnumber(L, theColor.g * 255.0);
+    lua_pushnumber(L, theColor.b * 255.0);
+    lua_pushnumber(L, theColor.a * 255.0);
+    {
+        char unused[0x14];
+    }
+    return 4;
+}
 
 LUA_FUNCTION(PESetEndColor)
 {
@@ -364,7 +568,24 @@ LUA_FUNCTION(PESetEndColor)
     return 0;
 }
 
-LUA_FUNCTION_TODO(PEGetEndColor)
+LUA_FUNCTION(PEGetEndColor)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    EParticleEmitter *pPe = (EParticleEmitter *)GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!pPe)
+        return 0;
+    Color theColor = UnpackColor(pPe->m_endColor);
+    lua_pushnumber(L, theColor.r * 255.0);
+    lua_pushnumber(L, theColor.g * 255.0);
+    lua_pushnumber(L, theColor.b * 255.0);
+    lua_pushnumber(L, theColor.a * 255.0);
+    {
+        char unused[0x14];
+    }
+    return 4;
+}
 
 LUA_FUNCTION(PESetStartAlpha)
 {
@@ -683,7 +904,25 @@ LUA_FUNCTION(PEGetGroundStopRotation)
     return 1;
 }
 
-LUA_FUNCTION_TODO(PESetTexAnimInfo)
+LUA_FUNCTION(PESetTexAnimInfo)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 5, 6))
+        return 0;
+    EParticleEmitter *pPe = (EParticleEmitter *)GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!pPe)
+        return 0;
+    int nA = (int)GetNumberArg(L, 2, false);
+    int myBEnt = (int)GetNumberArg(L, 3, false);
+    int c = (int)GetNumberArg(L, 4, false);
+    float newRateObj = GetNumberArg(L, 5, false);
+    bool flag = n >= 6 ? GetNumberArg(L, 6, true) != 0 : false;
+    int nWasAnimatedVal = pPe->TestFlag(0x20);
+    pPe->SetTexAnimInfo(nA, myBEnt, c, newRateObj, flag);
+    if (nWasAnimatedVal)
+        pPe->RestartTexAnim(nA);
+    return 0;
+}
 
 LUA_FUNCTION(PEGetTexAnimInfo)
 {
@@ -802,7 +1041,29 @@ LUA_FUNCTION(PEGetParticleBlendMode)
     return 1;
 }
 
-LUA_FUNCTION_TODO(LPEDrawWaveyLine)
+LUA_FUNCTION(LPEDrawWaveyLine)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 13, 13))
+        return 0;
+    ELineParticleEmitter *lpe = (ELineParticleEmitter *)GetEntityArg(L, 1, false, &ELineParticleEmitter::s_class);
+    if (!lpe)
+        return 0;
+    float x1 = GetNumberArg(L, 2, false);
+    float y1 = GetNumberArg(L, 3, false);
+    float z1 = GetNumberArg(L, 4, false);
+    Vector3 start(x1, y1, z1);
+    float x2 = GetNumberArg(L, 5, false);
+    float y2 = GetNumberArg(L, 6, false);
+    float z2 = GetNumberArg(L, 7, false);
+    Vector3 end(x2, y2, z2);
+    int segments = (int)GetNumberArg(L, 8, false);
+    Color color = GetColorArg(L, 9, false);
+    float width = GetNumberArg(L, 13, false);
+    EMatrix mat = g_identityMatrix;
+    lpe->DrawLine(&mat, start, end, segments, width, color);
+    return 0;
+}
 
 LUA_FUNCTION_TODO(LPEDrawWaveyCircle)
 
@@ -947,9 +1208,55 @@ LUA_FUNCTION(LPESetDensity)
 
 LUA_FUNCTION_TODO(PESetDistribution)
 
-LUA_FUNCTION_TODO(PESetDistributionFlag)
+LUA_FUNCTION(PESetDistributionFlag)
+{
+    int iN = lua_gettop(L);
+    if (!CheckArgs(L, 2, 3))
+        return 0;
+    EParticleEmitter *curPe = (EParticleEmitter *)GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!curPe)
+        return 0;
+    unsigned int flag = (unsigned int)GetNumberArg(L, 2, false);
+    if (lua_type(L, 2) == LUA_TNIL) {
+        LuaCallSite(L);
+        return 0;
+    }
+    bool on = iN >= 3 ? GetNumberArg(L, 3, true) != 0 : true;
+    if (curPe->GetSource()) {
+        if (on)
+            curPe->GetSource()->AddFlags(flag);
+        else
+            curPe->GetSource()->RemoveFlags(flag);
+    }
+    return 0;
+}
 
-LUA_FUNCTION_TODO(PESetText)
+LUA_FUNCTION(PESetText)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EParticleEmitter *pPe = (EParticleEmitter *)GetEntityArg(L, 1, false, &EParticleEmitter::s_class);
+    if (!pPe)
+        return 0;
+    const char *szText = GetStringArg(L, 2, false);
+    EParticleSource *source = pPe->m_source;
+    if (source->GetType() == 6) {
+        source->SetText(szText);
+        int count = 0;
+        const char *p = szText;
+        while (*p) {
+            if (*p != '\n')
+                count++;
+            p++;
+        }
+        if (pPe->GetMaxParticles() < count)
+            pPe->SetMaxParticles(count);
+        pPe->Reset();
+        pPe->Prespawn(count);
+    }
+    return 0;
+}
 
 LUA_FUNCTION(PESetRelative)
 {
@@ -1406,9 +1713,72 @@ LUA_FUNCTION(PEGetAlwaysDraw)
     return 1;
 }
 
-LUA_FUNCTION_TODO(CreateSphericalParticleDeflector)
+LUA_FUNCTION(CreateSphericalParticleDeflector)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 5, 5))
+        return 0;
+    const char *name = lua_tostring(L, 1);
+    float radius = lua_tonumber(L, 2);
+    float curFalloffVal = radius;
+    float x = lua_tonumber(L, 3);
+    float y = lua_tonumber(L, 4);
+    float newZCur = lua_tonumber(L, 5);
+    if (!name)
+        return 0;
+    EParticleAffector *theAff = 0;
+    EDomain *domain = 0;
+    EScriptObject *soPtr = GetThreadScript(L);
+    if (soPtr) {
+        EEntity *ent = soPtr->GetEntity();
+        if (ent)
+            domain = ent->m_domain;
+    }
+    if (!domain)
+        domain = g_game->GetLevelManager()->GetDomainManager()->FindDomain("Level");
+    theAff = CreateEntity<EParticleAffector>(domain, name);
+    theAff->Setup(8, radius, curFalloffVal, x, y, newZCur);
+    bool newOkVal = theAff->Load("ParticleEmitter", name, 0, 0, 0, true);
+    if (newOkVal == true)
+        lua_getref(L, theAff->GetScriptObject()->m_ref);
+    else {
+        delete (EEntityVirtuals *)theAff;
+        lua_pushnil(L);
+    }
+    return 1;
+}
 
-LUA_FUNCTION_TODO(CreateCylindricalParticleDeflector)
+LUA_FUNCTION(CreateCylindricalParticleDeflector)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 3, 3))
+        return 0;
+    const char *name = GetStringArg(L, 1, false);
+    float radius = GetNumberArg(L, 2, false);
+    float height = GetNumberArg(L, 3, false);
+    if (!name)
+        return 0;
+    EParticleAffector *theAff = 0;
+    EDomain *domain = 0;
+    EScriptObject *soPtr = GetThreadScript(L);
+    if (soPtr) {
+        EEntity *ent = soPtr->GetEntity();
+        if (ent)
+            domain = ent->m_domain;
+    }
+    if (!domain)
+        domain = g_game->GetLevelManager()->GetDomainManager()->FindDomain("Level");
+    theAff = CreateEntity<EParticleAffector>(domain, name);
+    theAff->Setup(0x10, height, radius, 0.0f, 0.0f, 0.0f);
+    bool newOkVal = theAff->Load("dummy", name, 0, 0, 0, true);
+    if (newOkVal == true)
+        lua_getref(L, theAff->GetScriptObject()->m_ref);
+    else {
+        delete (EEntityVirtuals *)theAff;
+        lua_pushnil(L);
+    }
+    return 1;
+}
 
 LUA_FUNCTION(PASetInverse)
 {
@@ -1426,9 +1796,75 @@ LUA_FUNCTION(PASetInverse)
     return 0;
 }
 
-LUA_FUNCTION_TODO(CreateSphericalParticleAffector)
+LUA_FUNCTION(CreateSphericalParticleAffector)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 5, 5))
+        return 0;
+    const char *name = lua_tostring(L, 1);
+    float radius = lua_tonumber(L, 2);
+    float curFalloffVal = radius;
+    float x = lua_tonumber(L, 3);
+    float y = lua_tonumber(L, 4);
+    float newZCur = lua_tonumber(L, 5);
+    if (!name)
+        return 0;
+    EParticleAffector *theAff = 0;
+    EDomain *domain = 0;
+    EScriptObject *soPtr = GetThreadScript(L);
+    if (soPtr) {
+        EEntity *ent = soPtr->GetEntity();
+        if (ent)
+            domain = ent->m_domain;
+    }
+    if (!domain)
+        domain = g_game->GetLevelManager()->GetDomainManager()->FindDomain("Level");
+    theAff = CreateEntity<EParticleAffector>(domain, name);
+    theAff->Setup(1, radius, curFalloffVal, x, y, newZCur);
+    bool newOkVal = theAff->Load("dummy", name, 0, 0, 0, true);
+    if (newOkVal == true)
+        lua_getref(L, theAff->GetScriptObject()->m_ref);
+    else {
+        delete (EEntityVirtuals *)theAff;
+        lua_pushnil(L);
+    }
+    return 1;
+}
 
-LUA_FUNCTION_TODO(CreateCylindricalParticleAffector)
+LUA_FUNCTION(CreateCylindricalParticleAffector)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 6, 6))
+        return 0;
+    const char *name = lua_tostring(L, 1);
+    float radius = lua_tonumber(L, 2);
+    float curFalloffVal = lua_tonumber(L, 3);
+    float x = lua_tonumber(L, 4);
+    float y = lua_tonumber(L, 5);
+    float newZCur = lua_tonumber(L, 6);
+    if (!name)
+        return 0;
+    EParticleAffector *theAff = 0;
+    EDomain *domain = 0;
+    EScriptObject *soPtr = GetThreadScript(L);
+    if (soPtr) {
+        EEntity *ent = soPtr->GetEntity();
+        if (ent)
+            domain = ent->m_domain;
+    }
+    if (!domain)
+        domain = g_game->GetLevelManager()->GetDomainManager()->FindDomain("Level");
+    theAff = CreateEntity<EParticleAffector>(domain, name);
+    theAff->Setup(2, radius, curFalloffVal, x, y, newZCur);
+    bool newOkVal = theAff->Load("dummy", name, 0, 0, 0, true);
+    if (newOkVal == true)
+        lua_getref(L, theAff->GetScriptObject()->m_ref);
+    else {
+        delete (EEntityVirtuals *)theAff;
+        lua_pushnil(L);
+    }
+    return 1;
+}
 
 LUA_FUNCTION(SetPrimaryAffector)
 {
@@ -1531,9 +1967,44 @@ LUA_FUNCTION(PASetType)
     return 0;
 }
 
-LUA_FUNCTION_TODO(PASetFlag)
+LUA_FUNCTION(PASetFlag)
+{
+    int iN = lua_gettop(L);
+    if (!CheckArgs(L, 2, 3))
+        return 0;
+    EParticleAffector *aff = (EParticleAffector *)GetEntityArg(L, 1, false, &EParticleAffector::s_class);
+    if (!aff)
+        return 0;
+    unsigned int flag = (unsigned int)lua_tonumber(L, 2);
+    bool on = iN >= 3 ? GetNumberArg(L, 3, true) != 0 : true;
+    aff->SetFlag(flag, on);
+    return 0;
+}
 
-LUA_FUNCTION_TODO(PASetDimensions)
+LUA_FUNCTION(PASetDimensions)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 3, 3))
+        return 0;
+    EParticleAffector *theAff = (EParticleAffector *)GetEntityArg(L, 1, false, &EParticleAffector::s_class);
+    if (!theAff)
+        return 0;
+    float theW = GetNumberArg(L, 2, false);
+    float fH = GetNumberArg(L, 3, false);
+    theAff->m_width = theW;
+    theAff->m_height = fH;
+    theAff->m_widthSq = theW * theW;
+    theAff->m_heightSq = fH * fH;
+    if (theW > 0.0)
+        theAff->m_invWidthSq = 1.0f / theAff->m_widthSq;
+    else
+        theAff->m_invWidthSq = 1.0f;
+    if (fH > 0.0)
+        theAff->m_invHeightSq = 1.0f / theAff->m_heightSq;
+    else
+        theAff->m_invHeightSq = 1.0f;
+    return 0;
+}
 
 LUA_FUNCTION(PASetForces)
 {
@@ -1567,20 +2038,171 @@ LUA_FUNCTION(PASetTurbulence)
     return 0;
 }
 
-LUA_FUNCTION_TODO(TESetTranslationOffsets)
+LUA_FUNCTION(TESetTranslationOffsets)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 5, 5))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int iIndex = (unsigned int)GetNumberArg(L, 2, false);
+    Vector3 offset(GetNumberArg(L, 3, false), GetNumberArg(L, 4, false), GetNumberArg(L, 5, false));
+    EEmitterEntry &entry = te->GetEntry(iIndex);
+    return 0;
+}
 
-LUA_FUNCTION_TODO(TEGetTranslationOffsets)
+LUA_FUNCTION(TEGetTranslationOffsets)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int index = (unsigned int)GetNumberArg(L, 2, false);
+    if (index >= te->m_entries.m_count)
+        return 0;
+    EEmitterEntry &entryVal = te->GetValidEntry(index);
+    Vector3 offset(0.0f, 0.0f, 0.0f);
+    PushVector(L, offset);
+    {
+        char unused[0xc];
+    }
+    return 3;
+}
 
-LUA_FUNCTION_TODO(TESetRotationOffsets)
+LUA_FUNCTION(TESetRotationOffsets)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 5, 5))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    int iIndex = (int)GetNumberArg(L, 2, false);
+    Vector3 offset(GetNumberArg(L, 3, false), GetNumberArg(L, 4, false), GetNumberArg(L, 5, false));
+    EEmitterEntry &entry = te->GetEntry(iIndex);
+    return 0;
+}
 
-LUA_FUNCTION_TODO(TEGetRotationOffsets)
+LUA_FUNCTION(TEGetRotationOffsets)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int index = (unsigned int)GetNumberArg(L, 2, false);
+    if (index >= te->m_entries.m_count)
+        return 0;
+    EEmitterEntry &entryVal = te->GetValidEntry(index);
+    Vector3 offset(0.0f, 0.0f, 0.0f);
+    PushVector(L, offset);
+    {
+        char unused[0xc];
+    }
+    return 3;
+}
 
-LUA_FUNCTION_TODO(TESetPE)
+LUA_FUNCTION(TESetPE)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 3, 3))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int index = (unsigned int)GetNumberArg(L, 2, false);
+    EParticleEmitter *pe = (EParticleEmitter *)GetEntityArg(L, 3, false, &EParticleEmitter::s_class);
+    if (!pe)
+        return 0;
+    EEmitterEntry &entry = te->GetEntry(index);
+    entry.m_emitter = pe;
+    return 0;
+}
 
-LUA_FUNCTION_TODO(TEGetPE)
+LUA_FUNCTION(TEGetPE)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int index = (unsigned int)GetNumberArg(L, 2, false);
+    if (index >= te->m_entries.m_count)
+        return 0;
+    EEmitterEntry &entry = te->GetEntry(index);
+    if (!entry.m_emitter)
+        return 0;
+    lua_pushrawnumber(L, (int)entry.m_emitter);
+    return 1;
+}
 
-LUA_FUNCTION_TODO(TESetPA)
+LUA_FUNCTION(TESetPA)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 4, 4))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int iIndex = (unsigned int)GetNumberArg(L, 2, false);
+    unsigned int iWhich = (unsigned int)GetNumberArg(L, 3, false);
+    EParticleAffector *pa = (EParticleAffector *)GetEntityArg(L, 4, false, &EParticleAffector::s_class);
+    if (!pa)
+        return 0;
+    if (iIndex >= te->m_entries.m_count)
+        return 0;
+    EEmitterEntry &entry = te->GetEntry(iIndex);
+    if (iWhich == 0)
+        entry.m_affectors[0] = pa;
+    else if (iWhich == 1)
+        entry.m_affectors[1] = pa;
+    return 0;
+}
 
-LUA_FUNCTION_TODO(TEGetPA)
+LUA_FUNCTION(TEGetPA)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 3, 3))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int iIndex = (unsigned int)GetNumberArg(L, 2, false);
+    unsigned int iWhich = (unsigned int)GetNumberArg(L, 3, false);
+    if (iIndex >= te->m_entries.m_count)
+        return 0;
+    EEmitterEntry &entry = te->GetValidEntry(iIndex);
+    EParticleAffector *pa = iWhich == 0 ? entry.m_affectors[0] : entry.m_affectors[1];
+    if (!pa || pa->IsDeleted())
+        return 0;
+    lua_getref(L, pa->GetScriptObject()->m_ref);
+    return 1;
+}
 
-LUA_FUNCTION_TODO(TEKillPE)
+LUA_FUNCTION(TEKillPE)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EEmitterGroup *te = (EEmitterGroup *)GetEntityArg(L, 1, false, &EEmitterGroup::s_class);
+    if (!te)
+        return 0;
+    unsigned int index = (unsigned int)GetNumberArg(L, 2, false);
+    if (index >= te->m_entries.m_count)
+        return 0;
+    EEmitterEntry &entry = te->GetValidEntry(index);
+    g_game->DestroyEmitter(entry.m_emitter);
+    if (entry.m_affectors[0] && !entry.m_affectors[0]->IsDeleted())
+        g_game->m_scripts.KillScript(entry.m_affectors[0]->GetScriptObject());
+    if (entry.m_affectors[1] && !entry.m_affectors[1]->IsDeleted())
+        g_game->m_scripts.KillScript(entry.m_affectors[1]->GetScriptObject());
+    entry.m_emitter = 0;
+    entry.m_affectors[1] = 0;
+    entry.m_affectors[0] = 0;
+    return 0;
+}

@@ -187,7 +187,19 @@ LUA_FUNCTION(HasCollideGeometry)
     return 1;
 }
 
-LUA_FUNCTION_TODO(SetEntitySplineRadius)
+LUA_FUNCTION(SetEntitySplineRadius)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    EEntity *ent = GetEntityArg(L, 1, false, 0);
+    if (!ent)
+        return 0;
+    float fRadius = GetNumberArg(L, 2, false);
+    if (ent->m_splineCollision)
+        ent->m_splineCollision->setRadius(fRadius);
+    return 0;
+}
 
 LUA_FUNCTION(GetEntityCollideType)
 {
