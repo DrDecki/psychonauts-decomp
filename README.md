@@ -1,8 +1,8 @@
 # Psychonauts
 
 ![Lua scripts](https://img.shields.io/badge/Lua%20scripts-100%25-brightgreen)
-![Engine](https://img.shields.io/badge/Engine-34.70%25%20(3793%2F10930)-orange)
-![Engine code](https://img.shields.io/badge/Engine%20code-12.82%25-red)
+![Engine](https://img.shields.io/badge/Engine-34.83%25%20(3807%2F10930)-orange)
+![Engine code](https://img.shields.io/badge/Engine%20code-12.91%25-red)
 
 A work-in-progress decompilation of Psychonauts (2005, PC).
 
@@ -18,7 +18,7 @@ This repository does **not** contain any game assets or game code. You need your
 | Part | Matching | Notes |
 | --- | --- | --- |
 | Lua scripts | 106607 / 106607 functions (100 %) | 9955 bytecode chunks from `.lub`, `.lpf`, `.ppf` and `.pkg` files |
-| Engine | 3793 / 10930 functions (34.70 %), 12.82 % of the code | Lua 4.0 runtime in `src/lua` complete, script functions in `src/game` in progress |
+| Engine | 3807 / 10930 functions (34.83 %), 12.91 % of the code | Lua 4.0 runtime in `src/lua` complete, script functions in `src/game` in progress |
 
 ![Progress map](engine/progress.svg)
 
@@ -239,7 +239,7 @@ The rest of the engine will follow the usual setup for MSVC games: a Ghidra proj
 
 ## Contributors
 
-- [jrwheels](https://github.com/jrwheels) matched the first native file, streaming, resource and mesh functions and part of the sound script functions (#2)
+- [jrwheels](https://github.com/jrwheels) matched the first native file, streaming, resource and mesh functions and part of the sound script functions (#2), then the resource cache, animation headers and skeleton input (#3)
 
 ## License
 
