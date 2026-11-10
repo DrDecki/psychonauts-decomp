@@ -89,6 +89,7 @@ struct Vector2 {
     float x, y;
     Vector2() {}
     Vector2(float x_, float y_) { x = x_; y = y_; }
+    void Set(float x_, float y_) { x = x_; y = y_; }
 };
 
 struct Color {
@@ -262,6 +263,7 @@ public:
     }
     T *GetData() { return (T *)m_data; }
     T &operator[](int i) { return ((T *)m_data)[i]; }
+    bool IsValid(unsigned int i) { return i < m_count; }
 };
 
 template <class T> TArray<T>::TArray(int category, bool flag)
@@ -313,6 +315,7 @@ struct ECollideSphere {
 class EPhysics {
 public:
     bool TestPhysFlag(unsigned int flag) { return (flag & m_physFlags) != 0; }
+    struct ETriCache *GetTriCache(int index);
     unsigned int GetSurfaceFlags() { return *(unsigned int *)&m_surface; }
     void SetCollideMode(int mode);
     ESurfaceInfo GetSurface() { return m_surface; }
@@ -605,12 +608,51 @@ public:
     float m_thawDistSq;             // 0x48
 };
 
+struct EProfileOption {
+    char pad0[4];
+    int m_changed;                  // 0x04
+    char pad8[0xc - 0x8];
+    char m_value[4];                // 0x0c
+};
+
+class EProfileOptionTable {
+public:
+    EProfileOption *Find(const char *name, bool create);
+    template <class T> bool Set(const char *name, T value, bool create)
+    {
+        EProfileOption *option = Find(name, create);
+        char unused[0x1c];  // the original has more locals here
+        if (option) {
+            *(T *)option->m_value = value;
+            option->m_changed = 1;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    char pad0[0x14];
+};
+
 struct EProfile {
     const char *GetName() { return m_name; }
+    template <class T> bool SetOption(const char *name, T *value, bool create)
+    {
+        if (m_options.Set(name, *value, create)) {
+            return true;
+        } else if (m_moreOptions.Set(name, *value, create)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    void Save();
 
     char pad0[0x16f4];
     const char *m_name;             // 0x16f4
-    char pad16f8[0x1724 - 0x16f8];
+    char pad16f8[0x16fc - 0x16f8];
+    EProfileOptionTable m_options;      // 0x16fc
+    EProfileOptionTable m_moreOptions;  // 0x1710
 };
 
 class ESaveManager {
@@ -689,12 +731,18 @@ public:
     void PrintNote(const char *text);
     void SetProximityHint(const char *text, bool flag);
     void SetCollectedItemText(const char *text, bool flag);
+    void ClearCollectedItemText() { m_collectedText.Clear(); }
 
-    char pad0[0x2fa];
+    char pad0[0x2e0];
+    struct EHUDTextLine {
+        void Clear();
+        char pad[0x1a];
+    } m_collectedText;              // 0x2e0
 };
 
 class EKeypad {
 public:
+    void Init(const char *name, bool flag, EScriptObject *listener);
     void Exit();
     void AddNumber(int number);
 };
@@ -709,6 +757,7 @@ public:
     bool IsNewGoalDone();
     bool IsCompletedGoalDone();
     void ShowDemoEnd(bool show, int flags);
+    void AddCompletedGoal(const char *name);
 
     class EPowerHUD *m_powers;          // 0x00
     char pad4[4];
@@ -952,6 +1001,7 @@ struct EInputRecorder {
     bool IsPlaying() { return m_playing; }
     bool WaitForPlayback();
     void PauseRecording(bool pause);
+    void Record(const char *path);
 
     char pad0[0x12];
     bool m_showInfo;                // 0x12
@@ -1098,7 +1148,7 @@ public:
     bool m_refreshPixelShaders;         // 0xcc
     bool m_timingInfoAll;               // 0xcd
     char padce[0xd6 - 0xce];
-    bool m_notMovieCaptureFlag;         // 0xd6
+    bool m_hudHidden;                   // 0xd6
     char padd7[0xe5 - 0xd7];
     bool m_e5;                          // 0xe5
     char pade6[0xeb - 0xe6];
@@ -1123,7 +1173,8 @@ public:
     EWater *m_water;                    // 0x1a0
     char pad1a4[0x1ac - 0x1a4];
     class ELightmaps *m_lightmaps;      // 0x1ac
-    char pad1b0[0x1b8 - 0x1b0];
+    char pad1b0[0x1b4 - 0x1b0];
+    class EParticleManager *m_particles;    // 0x1b4
     ELightManager *m_lights;            // 0x1b8
     char pad1bc[0x1c0 - 0x1bc];
     struct EDecalManager *m_decals;     // 0x1c0
@@ -1144,7 +1195,16 @@ public:
     class EPsiBlastManager *m_psiBlasts; // 0x81a4
     char pad81a8[0x81b4 - 0x81a8];
     class EDomain *m_mainDomain;        // 0x81b4
-    char pad81b8[0x8238 - 0x81b8];
+    char pad81b8[0x81d4 - 0x81b8];
+    float m_rumbleLeftStart;            // 0x81d4
+    float m_rumbleLeftEnd;              // 0x81d8
+    float m_rumbleLeftInvLength;        // 0x81dc
+    float m_rumbleRightStart;           // 0x81e0
+    float m_rumbleRightEnd;             // 0x81e4
+    float m_rumbleRightInvLength;       // 0x81e8
+    Vector2 m_rumbleLeftKeys[4];        // 0x81ec, bezier control points (time, strength)
+    Vector2 m_rumbleRightKeys[4];       // 0x820c
+    char pad822c[0x8238 - 0x822c];
     struct EActionItems *m_actionItems; // 0x8238
     class EPlayer *m_player;                  // 0x823c
     class ETelekinesis *m_telekinesis;  // 0x8240
@@ -1174,7 +1234,9 @@ public:
     EHUDElements m_hudElements;         // 0x8930
     char pad8954[0x895c - 0x8954];
     struct ECredits *m_credits;         // 0x895c
-    char pad8960[0x8c64 - 0x8960];
+    char pad8960[0x89f4 - 0x8960];
+    bool m_hudOverlayHidden;            // 0x89f4
+    char pad89f5[0x8c64 - 0x89f5];
     EMenuManager *m_menus;              // 0x8c64
     struct EFader *m_fader;             // 0x8c68
     struct EInputRecorder *m_recorder;  // 0x8c6c

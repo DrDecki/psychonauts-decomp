@@ -554,7 +554,7 @@ LUA_FUNCTION(MovieCaptureMode)
     g_game->m_movieCapture = on;
     bool capture = on ? theFlag : true;
     g_game->m_movieCaptureFlag = capture;
-    g_game->m_notMovieCaptureFlag = !capture;
+    g_game->m_hudHidden = !capture;
     return 0;
 }
 

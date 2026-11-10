@@ -30,7 +30,8 @@ public:
     int GetType() { return m_type; }
     int GetHandle() { return m_handle; }
 
-    char pad4[0x1c - 4];
+    char pad4[0x10 - 4];
+    TArray<EScriptObject *> m_listeners;    // 0x10
     int m_type;                     // 0x1c
     int m_handle;                   // 0x20
 };

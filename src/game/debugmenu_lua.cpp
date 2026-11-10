@@ -29,11 +29,20 @@ public:
     void Enable(int flags);
 };
 
+class EParticleManager {
+public:
+    void DumpInfo(bool all, bool details);
+};
+
 struct ECamera {
     int GetType() { return m_type; }
+    EEntity *GetPrimaryTarget() { return m_primaryTarget; }
+    void SetPrimaryTarget(void *ent, bool snap);
 
     int m_type;
-    char pad4[0x531 - 4];
+    char pad4[0x47c - 4];
+    EEntity *m_primaryTarget;       // 0x47c
+    char pad480[0x531 - 0x480];
     unsigned char m_531_0 : 1;
     unsigned char m_531_1 : 1;
     unsigned char m_flyCam : 1;
@@ -48,6 +57,23 @@ extern FILETIME g_globalTimerStart;
 extern int g_fragDebugCount;
 extern int g_fragDebugMin;
 extern int g_fragDebugEntity;
+
+// debug trace channels, one entry per channel
+struct ETraceChannel {
+    const char *m_name;
+    bool m_enabled;
+};
+extern ETraceChannel g_traceChannels[];
+
+// statistics of the triangle cache of a collision mesh
+struct ETriCacheStats {
+    int m_values[0x24];
+};
+
+struct ETriCache {
+    char pad0[0x20];
+    ETriCacheStats m_stats;         // 0x20
+};
 
 
 LUA_FUNCTION(DbgMenuReset)
@@ -173,7 +199,20 @@ LUA_FUNCTION(SetAnimDisplayEntity)
     return 0;
 }
 
-LUA_FUNCTION_TODO(TraceSetEnabled)
+LUA_FUNCTION(TraceSetEnabled)
+{
+    int iN = lua_gettop(L);
+    if (!CheckArgs(L, 2, 2))
+        return 0;
+    unsigned int channel = (unsigned int)GetNumberArg(L, 1, false);
+    if (lua_type(L, 1) == LUA_TNIL) {
+        LuaCallSite(L);
+        return 0;
+    }
+    bool on = GetNumberArg(L, 2, false) != 0;
+    g_traceChannels[channel].m_enabled = on;
+    return 0;
+}
 
 LUA_FUNCTION(DebugIs3dFlyCamera)
 {
@@ -192,7 +231,21 @@ LUA_FUNCTION(DebugToggleInGameMenu)
     return 0;
 }
 
-LUA_FUNCTION_TODO(DebugTogglePrimaryTarget)
+LUA_FUNCTION(DebugTogglePrimaryTarget)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 0, 1))
+        return 0;
+    int on = n >= 1 ? (int)GetNumberArg(L, 1, true) : -1;
+    ECamera *cam = g_game->GetCamera();
+    if (on >= 0 && (cam->GetPrimaryTarget() == 0) == (on == 1))
+        return 0;
+    if (cam->GetPrimaryTarget())
+        cam->SetPrimaryTarget(0, false);
+    else
+        cam->SetPrimaryTarget(g_game->GetPlayerControl(), false);
+    return 0;
+}
 
 LUA_FUNCTION(DebugCycleHighlightedSurface)
 {
@@ -272,7 +325,20 @@ LUA_FUNCTION(StackTrace)
 
 LUA_FUNCTION_TODO(SetTriCache)
 
-LUA_FUNCTION_TODO(ReportTriCache)
+LUA_FUNCTION(ReportTriCache)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 1, 1))
+        return 0;
+    ETriggerBase *trig = GetTriggerArg(L, 1, false);
+    if (!trig)
+        return 0;
+    ETriCache *cache = trig->GetPhysics()->GetTriCache(0);
+    if (!cache)
+        return 0;
+    ETriCacheStats stats = cache->m_stats;
+    return 0;
+}
 
 LUA_FUNCTION(DebugDumpSounds)
 {
@@ -306,7 +372,16 @@ LUA_FUNCTION(DebugDumpBlendShapes)
 
 LUA_FUNCTION_TODO(DebugDumpMemory)
 
-LUA_FUNCTION_TODO(DebugDumpParticles)
+LUA_FUNCTION(DebugDumpParticles)
+{
+    int n = lua_gettop(L);
+    if (!CheckArgs(L, 0, 2))
+        return 0;
+    bool all = n >= 1 ? GetNumberArg(L, 1, true) != 0 : false;
+    bool bDetails = n >= 2 ? GetNumberArg(L, 2, true) != 0 : false;
+    g_game->m_particles->DumpInfo(all, bDetails);
+    return 0;
+}
 
 LUA_FUNCTION(DebugDumpBlendshape)
 {
