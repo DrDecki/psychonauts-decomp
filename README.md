@@ -243,7 +243,9 @@ The rest of the engine will follow the usual setup for MSVC games: a Ghidra proj
 
 ## License
 
-My code (`tools/` and `psyluac/psyluac.c`) is under the MIT license, see `LICENSE`.
+My code (`tools/`, `psyluac/psyluac.c` and the reconstructed engine code in `src/game/`) is under the GNU General Public License v3.0, see `LICENSE`. Until November 2026 the project was under the MIT license, so everything committed before the switch can also still be used under MIT.
+
+The code in `src/game/` recreates Double Fine's code from the executable. The license covers the work that went into the reconstruction, it does not give anyone rights to Psychonauts itself.
 
 The rest of `psyluac/` and all of `src/lua/` is Lua 4.0 by TeCGraf, PUC-Rio under its own license, see `COPYRIGHT` in both folders. Every changed file says so at the top. In `psyluac/` I changed `llimits.h`, `lparser.c` and `ldo.c`. In `src/lua/` the changes are Double Fine's, reconstructed from the executable (`tools/mark.py` adds the note).
 
